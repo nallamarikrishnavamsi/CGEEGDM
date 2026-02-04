@@ -1,7 +1,7 @@
 <div align="center">
 <br>
 <img src="assets/title.png" width="166">
-<h2>EEGDM: EEG Representation Learning via Generative Diffusion Model</h2></div>
+<h2>EEGDM: Label-Efficient EEG Representation Learning via Generative Diffusion Model</h2></div>
 
 <p align="center">
   <a href="https://github.com/jhpuah/EEGDM/blob/main/EEGDM_V2.pdf">
@@ -124,6 +124,7 @@ The results show that EEGDM outperforms other FMs despite having a much smaller 
 *   **[2025-08-11]** Main pages and experiment result update.
 *   **[2025-08-27]** Preprint V2.
 *   **[2025-10-02]** Update README to match preprint V2.
+*   **[2026-02-04]** Update title, preprint V3 and its code are still pending
 
 ## ⚙️ Quick Start
 
