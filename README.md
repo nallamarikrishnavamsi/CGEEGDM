@@ -58,6 +58,17 @@ The proposed method addresses critical limitations in current EEG analysis, incl
 
 • We empirically compared our method with current state-of-the-art approaches on the multi-event dataset TUEV to show its competitiveness and provided a detailed ablation study to analyze its components.
 
+## 🥇Performance
+
+| Model Ranking | TUEV (Multi-event) | CHB-MIT (Out-of-Domain) | IIIC (Seizure Classification) |
+|:---:|:---:|:---:|:---:|
+| | *Kappa / BAcc / WF1* | *BAcc / AUC-PR / AUROC* | *Kappa / BAcc / WF1* |
+| 🥇 **1st** | EEGDM (Ours) **74.23 / 75.57 / 86.88** | EEGDM (Ours) **85.82 / 48.45 / —** | EEGDM (Ours) **52.18 / 59.56 / 61.53** |
+| 🥈 **2nd** | [Gram-L](https://github.com/ispamm/GRAM) 71.30 / 74.87 / 88.24 | [CodeBrain](https://github.com/jingyingma01/CodeBrain) 72.73 / 43.77 / **89.61** | [Gram](https://github.com/ispamm/GRAM) 50.48 / 59.37 / 60.20 |
+| 🥉 **3rd** | [Uni-NTFM-Large](https://github.com/935963004/NeuroLM) 70.30 / 69.91 / 84.66 | [CBraMod](https://github.com/wjq-learning/CBraMod) 73.98 / 36.89 / 88.92 | [CBraMod](https://github.com/wjq-learning/CBraMod) 40.77 / 49.33 / 51.02 |
+| **4th** | [NeurIPT](https://zzzitaofang.github.io/projects/NeurIPT/) 69.70 / 67.61 / 84.28 | [LaBraM-Base](https://github.com/935963004/LaBraM) 70.75 / 32.87 / 86.79 | [CodeBrain (TUEV)](https://github.com/jingyingma01/CodeBrain) 28.25 / 38.74 / 40.28 |
+| **5th** | [Gram-M](https://github.com/ispamm/GRAM) 66.77 / 74.06 / 86.74 | [BIOT](https://github.com/ycq091044/BIOT) 70.68 / 32.77 / 87.61 | [CodeBrain (CHB-MIT)](https://github.com/jingyingma01/CodeBrain) 28.08 / 38.15 / 39.86 |
+
 ## 📈 Main result
 EEGDM outperforms various EEG FMs despite the disadvantage in the volume of training data and the number of trainable parameters. On top of that, finetuning EEGDM will not update the pretrained parameters, allowing one backbone to be used in multiple downstream tasks simultaneously.
 
