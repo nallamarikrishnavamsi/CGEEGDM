@@ -20,10 +20,11 @@
 
 <h3 align="center"><a href="https://aimplifier.github.io/projects/eegdm/"> Project page here 🚀</a></h3>
 
+## 💡 Graphical Abstract
 
-## 🥇Performance
+## 🥇 Performance (Till May 2026)
 
-<div align="right">Till May 2026</div>
+
 
 <div align="center">
   
@@ -35,27 +36,20 @@
 | 🥉 **3rd** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Uni-NTFM-Large](https://github.com/935963004/NeuroLM)<br><sub><code>ICLR 2025</code> 27 Aug 2024</sub><br><sub>70.30 / 69.91 / 84.66</sub> | <sub><code>ZJU</code> <img src="assets/ZJU.png" width="21"></sub> [CBraMod](https://github.com/wjq-learning/CBraMod)<br><sub><code>ICLR 2025</code> 10 Dec 2024</sub><br><sub>73.98 / 36.89 / 88.92</sub> | <sub><code>ZJU</code> <img src="assets/ZJU.png" width="21"></sub> [CBraMod](https://github.com/wjq-learning/CBraMod)<br><sub><code>ICLR 2025</code> 10 Dec 2024</sub><br><sub>40.77 / 49.33 / 51.02</sub> |
 | **4th** | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [NeurIPT](https://zzzitaofang.github.io/projects/NeurIPT/)<br><sub><code>NeurIPS 2025</code> 18 Oct 2025</sub><br><sub>69.70 / 67.61 / 84.28</sub> | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [LaBraM-Base](https://github.com/935963004/LaBraM)<br><sub><code>ICLR 2024</code> 29 May 2024</sub><br><sub>70.75 / 32.87 / 86.79</sub> | <sub><code>NUS</code> <img src="assets/NUS.png" width="40"></sub> [CodeBrain](https://github.com/jingyingma01/CodeBrain)<br><sub><code>ICLR 2026</code> 10 Jun 2025</sub><br><sub>28.25 / 38.74 / 40.28</sub> |
 | **5th** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Gram-M](https://github.com/iiieeeve/Gram)<br><sub><code>ICASSP 2025</code> 28 Nov 2025</sub><br><sub>66.77 / 74.06 / 86.74</sub> | <sub><code>UIUC</code> <img src="assets/UIUC2.png" width="20"></sub> [BIOT](https://github.com/ycq091044/BIOT)<br><sub><code>NeurIPS 2023</code> 10 May 2023</sub><br><sub>70.68 / 32.77 / 87.61</sub> |
-  
+</div>  
+
+
+## 🌌 Introduction
+
+Our EEGDM is a novel self-supervised diffusion model designed for superior EEG signal representation learning. Unlike traditional "tokenization-then-masking" approaches used in EEG foundation models, EEGDM leverages the power of diffusion models to achieve robust and meaningful representations through progressive noise corruption and denoising.
+
 <div align="center">
 <br>
 <img src="assets/ssmdp_cap.png" width="1066">
 
 </div>
 
-<div align="center">
-<br>
-<img src="assets/pool_cap.png" width="1066">
-</div>
 
-<div align="center">
-<br>
-<img src="assets/lft_cap.png" width="1066">
-</div>
-
-
-## 🌌 Introduction
-
-Our EEGDM is a novel self-supervised diffusion model designed for superior EEG signal representation learning. Unlike traditional "tokenization-then-masking" approaches used in EEG foundation models, EEGDM leverages the power of diffusion models to achieve robust and meaningful representations through progressive noise corruption and denoising.
 
 EEGDM is distinguished by three key innovations:
 
@@ -63,6 +57,13 @@ EEGDM is distinguished by three key innovations:
 2. Structured State-Space Model Architecture (SSMDP): EEGDM introduces a specialized neural architecture based on structured state-space models specifically designed for diffusion pre-training, enabling better capture of the temporal dynamics inherent in EEG signals.
 3. Latent Fusion Transformer for Downstream Tasks: The framework incorporates a novel latent fusion transformer (LFT) that effectively utilizes the learned diffusion representations for downstream classification tasks like seizure detection, addressing the challenge of translating generative representations to discriminative tasks.
 The proposed method addresses critical limitations in current EEG analysis, including the difficulty of learning robust representations due to limited high-quality annotations and high signal variability across subjects and conditions, while potentially offering computational advantages over existing transformer-based EEG foundation models.
+
+<div align="center">
+<br>
+<img src="assets/pool_cap.png" width="1066">
+</div>
+
+
 
 ## 😮 Hightlights
 
@@ -73,6 +74,11 @@ The proposed method addresses critical limitations in current EEG analysis, incl
 • We proposed LFT to leverage and fuse the latent representations from SSMDP for downstream classification tasks.
 
 • We empirically compared our method with current state-of-the-art approaches on the multi-event dataset TUEV to show its competitiveness and provided a detailed ablation study to analyze its components.
+
+<div align="center">
+<br>
+<img src="assets/lft_cap.png" width="1066">
+</div>
 
 ## 📈 Main result
 EEGDM outperforms various EEG FMs despite the disadvantage in the volume of training data and the number of trainable parameters. On top of that, finetuning EEGDM will not update the pretrained parameters, allowing one backbone to be used in multiple downstream tasks simultaneously.
