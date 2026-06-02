@@ -28,7 +28,7 @@
 
 <div align="center">
   
-| Model Ranking | TUEV (Multi-Event EEG) | CHB-MIT (Seizure Prediction) | IIIC (Ictal-Interictal-Injury Continuum) |
+| Model Ranking | TUEV (Multi-Event EEG) | CHB-MIT (Seizure Prediction) | IIIC (Ictal-Interictal-Injury Continuum)* |
 |:---:|:---:|:---:|:---:|
 | | *Kappa / BAcc / WF1* | *BAcc / AUC-PR / AUROC* | *Kappa / BAcc / WF1* |
 | 🥇 **1st** | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**74.23 / 75.57 / 86.88**</sub> | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**85.82 / 48.45 /** 89.26</sub> | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**52.18 / 59.56 / 61.53**</sub> |
@@ -36,8 +36,10 @@
 | 🥉 **3rd** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Uni-NTFM-Large](https://github.com/935963004/NeuroLM)<br><sub><code>ICLR 2025</code> 27 Aug 2024</sub><br><sub>70.30 / 69.91 / 84.66</sub> | <sub><code>ZJU</code> <img src="assets/ZJU.png" width="21"></sub> [CBraMod](https://github.com/wjq-learning/CBraMod)<br><sub><code>ICLR 2025</code> 10 Dec 2024</sub><br><sub>73.98 / 36.89 / 88.92</sub> | <sub><code>ZJU</code> <img src="assets/ZJU.png" width="21"></sub> [CBraMod](https://github.com/wjq-learning/CBraMod)<br><sub><code>ICLR 2025</code> 10 Dec 2024</sub><br><sub>40.77 / 49.33 / 51.02</sub> |
 | **4th** | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [NeurIPT](https://zzzitaofang.github.io/projects/NeurIPT/)<br><sub><code>NeurIPS 2025</code> 18 Oct 2025</sub><br><sub>69.70 / 67.61 / 84.28</sub> | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [LaBraM-Base](https://github.com/935963004/LaBraM)<br><sub><code>ICLR 2024</code> 29 May 2024</sub><br><sub>70.75 / 32.87 / 86.79</sub> | <sub><code>NUS</code> <img src="assets/NUS.png" width="40"></sub> [CodeBrain](https://github.com/jingyingma01/CodeBrain)<br><sub><code>ICLR 2026</code> 10 Jun 2025</sub><br><sub>28.25 / 38.74 / 40.28</sub> |
 | **5th** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Gram-M](https://github.com/iiieeeve/Gram)<br><sub><code>ICASSP 2025</code> 28 Nov 2025</sub><br><sub>66.77 / 74.06 / 86.74</sub> | <sub><code>UIUC</code> <img src="assets/UIUC2.png" width="20"></sub> [BIOT](https://github.com/ycq091044/BIOT)<br><sub><code>NeurIPS 2023</code> 10 May 2023</sub><br><sub>70.68 / 32.77 / 87.61</sub> |
-</div>  
 
+
+\* The subject-wise train/validation/test split is provided in Data/IIIC_Split.txt.
+</div>  
 
 ## 🌌 Introduction
 
