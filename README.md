@@ -22,6 +22,11 @@
 
 ## 💡 Graphical Abstract
 
+<div align="center">
+<br>
+<img src="assets/EEGDM_GA.png" width="1066">
+</div>
+
 ## 🥇 Performance (Till May 2026)
 
 
