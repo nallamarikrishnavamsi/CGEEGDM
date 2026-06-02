@@ -27,7 +27,7 @@
 
 <div align="center">
   
-| Model Ranking | TUEV (Multi-event) | CHB-MIT (Seizure Prediction) | IIIC (Produced by Us) |
+| Model Ranking | TUEV (Multi-Event EEG) | CHB-MIT (Seizure Prediction) | IIIC (Ictal-Interictal-Injury Continuum) |
 |:---:|:---:|:---:|:---:|
 | | *Kappa / BAcc / WF1* | *BAcc / AUC-PR / AUROC* | *Kappa / BAcc / WF1* |
 | 🥇 **1st** | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**74.23 / 75.57 / 86.88**</sub> | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**85.82 / 48.45 /** 89.26</sub> | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**52.18 / 59.56 / 61.53**</sub> |
