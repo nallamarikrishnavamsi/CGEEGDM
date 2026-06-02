@@ -38,7 +38,7 @@
 | **5th** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Gram-M](https://github.com/iiieeeve/Gram)<br><sub><code>ICASSP 2025</code> 28 Nov 2025</sub><br><sub>66.77 / 74.06 / 86.74</sub> | <sub><code>UIUC</code> <img src="assets/UIUC2.png" width="20"></sub> [BIOT](https://github.com/ycq091044/BIOT)<br><sub><code>NeurIPS 2023</code> 10 May 2023</sub><br><sub>70.68 / 32.77 / 87.61</sub> |
 
 
-\* The subject-wise train/validation/test split is provided in Data/IIIC_Split.txt.
+\* **Note:** The subject-wise train/validation/test split is provided in Data/IIIC_Split.txt.
 </div>  
 
 ## 🌌 Introduction
