@@ -97,39 +97,6 @@ EEGDM outperforms various EEG FMs despite the disadvantage in the volume of trai
 <img src="assets/Result1.png" width="466">
 </div>
 
-## ✂️ Ablation
-DDPM is a framework with many moving parts. In this section, we show that our design choices are necessary for improved performance. 
-
-<div align="center">
-<img src="assets/Result2.png" width="566">
-</div>
-
-
-<div align="center">
-<img src="assets/Result3.png" width="566">
-</div>
-
-<br/>
-Another ablation shows that the latent activities of every part of the diffusion backbones contain classification-efficient representation, and the quality tends to increase as the layers deepen.
-
-<div align="center">
-<img src="assets/Result4.png" width="566">
-</div>
-
-<br/>
-The latent fusion module is the largest trainable component of the LFT. Here, we show that it is irreplaceable by other non-parameterized methods such as average pooling and flattening.
-
-<div align="center">
-<img src="assets/Result5.png" width="566">
-</div>
-
-<br>
-The unique formulation of SSMDP and LFT enables the EEGDM framework to operate at a different sampling rate without retraining, at the cost of degraded performance.
-
-<div align="center">
-<img src="assets/Result6.png" width="566">
-</div>
-
 ## 🔀 Generalize to CHB-MIT
 To verify the robustness of the learned representations in cross-domain generalization, we finetuned the model on a dataset with unseen characteristics.
 
