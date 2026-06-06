@@ -13,7 +13,7 @@ trainer:
   devices: [0, 1, 2, 3, 4, 5, 6, 7]
   logger: 
     - _target_: lightning.pytorch.loggers.wandb.WandbLogger
-      name: "chbmit_bin_filt"
+      name: "chbmit_bin_filt_pw100"
       project: "proper_finetuning"
       save_dir: "./log/"
   default_root_dir: "./checkpoint"
@@ -23,14 +23,14 @@ trainer:
       mode: "max"
       save_top_k: 1
       every_n_epochs: 1
-      dirpath: "./checkpoint/finetune/chbmit_bin_filt/"
+      dirpath: "./checkpoint/finetune/chbmit_bin_filt_pw100/"
       filename: "classifier"
       save_last: True
     - _target_: src.util.EarlyStoppingWithWarmup
       monitor: "val/bacc"
       mode: "max"
       patience: 3
-      warmup: 20
+      warmup: 10
   max_epochs: 50
   min_epochs: 5
   check_val_every_n_epoch: 1
@@ -121,7 +121,7 @@ model:
     reduction: "mean"
     label_smoothing: 0
     gamma: 0
-    pos_weight: 150.51
+    pos_weight: 100
 
   fwd_with_noise: null
   run_test_together: False

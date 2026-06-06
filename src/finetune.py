@@ -3,7 +3,7 @@ import lightning.pytorch as pl
 import torch.utils
 import torch.utils.data
 from model.classifier_pl import PLClassifier as PLClassifier_v2
-from dataloader.TUEVDataset import TUEVDataset
+from dataloader.TUEVDataset import TUEVDataset as TUEVDataset
 import os
 from omegaconf import DictConfig
 from hydra.utils import instantiate
@@ -11,12 +11,14 @@ import pickle
 import random
 import string
 from tqdm import tqdm
+import numpy as np
 
 def entry(config: DictConfig):
     pl.seed_everything(**config["rng_seeding"])
 
     trainer = instantiate(config["trainer"])
     data_is_cached = config.get("data_is_cached", False)
+    lmax = config["model"].get("set_lmax", None)
     if data_is_cached:
         metadata_inferred = {
             "diffusion_model_checkpoint": config["model"]["diffusion_model_checkpoint"],
@@ -32,6 +34,8 @@ def entry(config: DictConfig):
             "pool_merge": config["model"]["model_kwargs"]["pool_merge"],
             "multi_query_merge": config["model"]["model_kwargs"]["multi_query_merge"],
         }
+
+        if lmax is not None: metadata_inferred["lmax"] = lmax
         
         with open(os.path.join(config["data"]["root"], "metadata.pkl"), "rb") as m:
             metadata = pickle.load(m)
@@ -49,10 +53,16 @@ def entry(config: DictConfig):
         fwd_with_noise=config["model"]["fwd_with_noise"],
         data_is_cached=data_is_cached,
         run_test_together=config["model"]["run_test_together"],
+        test_data_is_cached=config["model"].get("test_data_is_cached", False),
         cls_version=config["model"]["cls_version"],
         lrd_kwargs=config["model"]["lrd_kwargs"],
-        is_binary=config["model"].get("is_binary", False)
+        is_binary=config["model"].get("is_binary", False),
+        is_multibinarylabel=config["model"].get("is_multibinarylabel", False),
+        is_multilabel=config["model"].get("is_multilabel", False)
     )
+
+    if lmax is not None:
+        for l in model.model.extractor.model.layers: l.layer.L = lmax
 
     data_config = instantiate(config["data"])
 
@@ -96,7 +106,17 @@ def entry(config: DictConfig):
             batch_size=data_config["batch_size"],
             num_workers=data_config["num_workers"],
         )
-
+    
+    # Reduce train/val on the fly
+    scarce = data_config.get("scarce", None)
+    if scarce is not None:
+        scarce_pct = scarce["pct"]
+        scarce_mode = scarce["mode"]
+        scarce_seed = scarce["seed"]
+        n_class = 2 if config["model"].get("is_binary", False) else config["model"]["model_kwargs"]["n_class"]
+        train_loader.dataset.setup_scarce(scarce_seed, scarce_mode, scarce_pct, n_class)
+        val_loader.dataset.setup_scarce(scarce_seed, scarce_mode, scarce_pct, n_class)
+        
     test_loader = torch.utils.data.DataLoader(
         TUEVDataset(
             os.path.join(data_config["root"], data_config["test_dir"]),

@@ -1,11 +1,11 @@
 
 # checkpoint: "/media/D3/tester/reresearch/_plt/propertest/finetune/test.ckpt"
 checkpoint: 
-  - "./checkpoint/finetune/chbmit_bin_filt/classifier.ckpt"
-  - "./checkpoint/finetune/chbmit_bin_filt/classifier-v1.ckpt"
-  - "./checkpoint/finetune/chbmit_bin_filt/classifier-v2.ckpt"
-  - "./checkpoint/finetune/chbmit_bin_filt/classifier-v3.ckpt"
-  - "./checkpoint/finetune/chbmit_bin_filt/classifier-v4.ckpt"
+  - "./checkpoint/finetune/chbmit_bin_filt_pw100/classifier.ckpt"
+  - "./checkpoint/finetune/chbmit_bin_filt_pw100/classifier-v1.ckpt"
+  - "./checkpoint/finetune/chbmit_bin_filt_pw100/classifier-v2.ckpt"
+  - "./checkpoint/finetune/chbmit_bin_filt_pw100/classifier-v3.ckpt"
+  - "./checkpoint/finetune/chbmit_bin_filt_pw100/classifier-v4.ckpt"
 
 device: "cuda:3"
 data_dir: "/media/D1/tester_temp/chbmit_filt/test"

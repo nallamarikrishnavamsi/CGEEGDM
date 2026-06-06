@@ -22,7 +22,7 @@ data:
   train_dir: "train"
   val_dir: "val"
   test_dir: "test"
-  batch_size: 16
+  batch_size: 32
   num_workers: 4
   schema:
     - _target_: dataloader.TUEVDataset.TUEVDataField

@@ -26,6 +26,9 @@ def inv_staged_mu_law(x, mu = 255, scale=1):
 def minus_one(x):
     return x - 1
 
+def plus_one(x):
+    return x + 1
+
 def div_100_staged_mu_law(x, mu=255):
     return staged_mu_law(x / 100, mu=mu)
 
@@ -57,6 +60,19 @@ def dynamic_load(item):
     package = ".".join(item[:-1])
     item_name = item[-1]
     return getattr(importlib.import_module(package), item_name)
+
+def staged_mu_law_pad(x, mu=255, scale=1):
+    x = staged_mu_law(x, mu, scale)
+    if x.shape[-1] < 800:
+        pad = np.zeros((x.shape[0], 800 - x.shape[-1]))
+        x = np.concatenate([x, pad], axis=-1)
+    return x
+def staged_mu_law_pad1(x, mu=255, scale=1):
+    x = staged_mu_law(x, mu, scale)
+    if x.shape[-1] < 1000:
+        pad = np.zeros((x.shape[0], 1000 - x.shape[-1]))
+        x = np.concatenate([x, pad], axis=-1)
+    return x
 
 # Modified from
 # https://github.com/Lightning-AI/pytorch-lightning/issues/2644

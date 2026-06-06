@@ -507,7 +507,7 @@ class LatentActivityDecoder(nn.Module):
         self.cls_token = nn.Parameter(param_init_fn(clst_shape))
         if init_weight: nn.init.trunc_normal_(self.cls_token, std=INIT_STD, a=-INIT_STD, b=INIT_STD)
         
-        assert stack_struct.count("c") * n_tower == n_query
+        if multi_query_merge != "cat": assert stack_struct.count("c") * n_tower == n_query
         cross_only = stack_struct.count("s") == 0
         assert cross_only or np.prod(clst_shape) > d_embed
 
@@ -603,10 +603,35 @@ class LatentActivityDecoder(nn.Module):
         # B n T P Q C H
         # TODO most x's are not affecting each other some some sort of parallelism can be pulled off?
         # the only loop that cant be paralleled is the one eliminating n, because clst need to be passed to the next layer
+        # for T, (Bn_PQCH, tower, ac_tower) in enumerate(zip(all_tokens.unbind(dim=2), self.tower, self.across_pool_tower)): # eliminate T
+        #     for B__PQCH, layer, ap_layer in zip(Bn_PQCH.unbind(dim=1), tower, ac_tower): # eliminate n
+        #         for P, B___QCH in enumerate(B__PQCH.unbind(dim=1)): # eliminate P
+        #             x[T][P] = layer(x[T][P], B___QCH) # B N H each
+                
+        #         if ap_layer is not None:
+        #             ap_x = x[T]
+                    
+        #             if self.have_ap_clst:
+        #                 ap_x = [ap_clst[T], *ap_x]
+                    
+        #             ap_x = torch.cat(ap_x, dim=1) # B (A + N * P) H, 'A' may be 0
+        #             ap_x = ap_layer(ap_x)
+                    
+        #             if self.have_ap_clst:
+        #                 ap_clst[T] = ap_x[:, :self.n_ap_clst, :]
+        #                 ap_x = ap_x[:, self.n_ap_clst:, :]
+                    
+        #             x[T] = list(torch.chunk(ap_x, chunks=self.n_pool, dim=1)) # [B N H] * P
+        P = all_tokens.shape[3]
         for T, (Bn_PQCH, tower, ac_tower) in enumerate(zip(all_tokens.unbind(dim=2), self.tower, self.across_pool_tower)): # eliminate T
             for B__PQCH, layer, ap_layer in zip(Bn_PQCH.unbind(dim=1), tower, ac_tower): # eliminate n
-                for P, B___QCH in enumerate(B__PQCH.unbind(dim=1)): # eliminate P
-                    x[T][P] = layer(x[T][P], B___QCH) # B N H each
+                # parallelized P
+                x_p = torch.cat(x[T], dim=0)
+                B___QCH = torch.cat(B__PQCH.unbind(dim=1), dim=0)
+                x[T] = layer(x_p, B___QCH).chunk(P, dim=0)
+
+                # for P, B___QCH in enumerate(B__PQCH.unbind(dim=1)): # eliminate P
+                #     x[T][P] = layer(x[T][P], B___QCH) # B N H each
                 
                 if ap_layer is not None:
                     ap_x = x[T]
@@ -629,6 +654,18 @@ class LatentActivityDecoder(nn.Module):
 
         return x, ap_clst
 
+class TimeVaryLinear(nn.Module):
+    def __init__(self, d_in, d_out, n_tv, bias=True):
+        super().__init__()
+        self.lins = nn.ModuleList([nn.Linear(d_in, d_out, bias=bias) for _ in range(n_tv)])
+    
+    def forward(self, x):
+        # ... d_in n_tv -> ... d_out n_tv
+        out = []
+        for _x, lin in zip(x.unbind(-1), self.lins):
+            out.append(lin(_x))
+        return torch.stack(out, dim=-1)
+
 class TransformerClassifier(nn.Module):
     def __init__(
         self,
@@ -647,7 +684,7 @@ class TransformerClassifier(nn.Module):
         dropout=0,
         have_crossnorm=True,
         stack_init_depth=0,
-        final_act="pool", # cat, pool, cls
+        final_act="pool", # cat, pool, cls, mbl, mbltv
         init_weight=False,
         n_class=6,
     ):
@@ -759,7 +796,7 @@ class Classifier(nn.Module):
         classifier_have_pos_embed=False,
         classifier_pos_embed_dim="TP", # TPN or TA
         classifier_stack_struct="sfsfsfsf",
-        classifier_final_act="pool", # cat, pool, cls
+        classifier_final_act="pool", # cat, pool, cls, mbl
         n_class=6,
     ):
         if classifier_use_ap_clst:
@@ -822,7 +859,7 @@ class Classifier(nn.Module):
 
             across_pool_stack_struct=across_pool_stack_struct,
             n_ap_clst=n_ap_clst,
-            ap_clst_dim=ap_clst_dim
+            ap_clst_dim=ap_clst_dim,
         )
 
         self.use_rep_idx = 1 if classifier_use_ap_clst else 0

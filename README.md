@@ -1,7 +1,7 @@
 <div align="center">
 <br>
 <img src="assets/title.png" width="166">
-<h2>EEGDM: EEG Representation Learning via Generative Diffusion Model</h2></div>
+<h2>EEGDM: Label-Efficient EEG Representation Learning via Generative Diffusion Model</h2></div>
 
 <p align="center">
   <a href="https://github.com/jhpuah/EEGDM/blob/main/EEGDM_V2.pdf">
@@ -20,26 +20,45 @@
 
 <h3 align="center"><a href="https://aimplifier.github.io/projects/eegdm/"> Project page here 🚀</a></h3>
 
+## 💡 Graphical Abstract
+
+<div align="center">
+<br>
+<img src="assets/EEGDM_GA.png" width="1066">
+</div>
+
+## 🥇 Performance (Till May 2026)
+
+
+
+<div align="center">
+  
+| Dataset | TUEV<br>(Multi-Event EEG) | CHB-MIT<br>(Seizure Prediction) | IIIC<br>(Ictal-Interictal-Injury Continuum)* |
+|:---:|:---:|:---:|:---:|
+| **Model Ranking** | *Kappa / BAcc / WF1* | *BAcc / AUC-PR / AUROC* | *Kappa / BAcc / WF1* |
+| 🥇 **1st** | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**74.23 / 75.57 /** 86.88</sub><br><sub>#Params (M): 12.8</sub> | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**85.82 / 48.45 /** 89.26</sub><br><sub>#Params (M): 12.8</sub> | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [**EEGDM**](https://github.com/jhpuah/EEGDM)<br><sub><code>Preprint</code> 13 Aug 2025</sub><br><sub>**52.18 / 59.56 / 61.53**</sub><br><sub>#Params (M): 12.8</sub> |
+| 🥈 **2nd** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Gram-L](https://github.com/iiieeeve/Gram)<br><sub><code>ICASSP 2025</code> 07 Mar 2025</sub><br><sub>71.30 / 74.87 / **88.24**</sub><br><sub>#Params (M): 251.28</sub> | <sub><code>NUS</code> <img src="assets/NUS.png" width="40"></sub> [CodeBrain](https://github.com/jingyingma01/CodeBrain)<br><sub><code>ICLR 2026</code> 10 Jun 2025</sub><br><sub>72.73 / 43.77 / **89.61**</sub><br><sub>#Params (M): 15.17</sub> | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Gram](https://github.com/iiieeeve/Gram)<br><sub><code>ICASSP 2025</code> 07 Mar 2025</sub><br><sub>50.48 / 59.37 / 60.20</sub> <br><sub>#Params (M): 6.0</sub> |
+| 🥉 **3rd** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Uni-NTFM-L](https://github.com/935963004/NeuroLM)<br><sub><code>ICLR 2025</code> 27 Aug 2024</sub><br><sub>70.30 / 69.91 / 84.66</sub> <br><sub>#Params (M): 1900.0</sub> | <sub><code>ZJU</code> <img src="assets/ZJU.png" width="21"></sub> [EEGMamba](https://github.com/wjq-learning/EEGMamba)<br><sub><code>NN 2025</code> 1 Dec 2025</sub><br><sub> 74.45 / 38.85 / 89.38 </sub><br><sub>#Params (M): 3.3</sub> | <sub><code>ZJU</code> <img src="assets/ZJU.png" width="21"></sub> [EEGMamba](https://github.com/wjq-learning/EEGMamba)<br><sub><code>NN 2025</code> 1 Dec 2025</sub><br><sub>44.03 / 52.84 / 54.64</sub><br><sub>#Params (M): 3.3</sub> |
+| **4th** | <sub><code>XMUM</code> <img src="assets/XMUM.png" width="20"></sub> [NeurIPT](https://zzzitaofang.github.io/projects/NeurIPT/)<br><sub><code>NeurIPS 2025</code> 18 Oct 2025</sub><br><sub>69.70 / 67.61 / 84.28</sub> <br><sub>#Params (M): 73.5</sub> | <sub><code>ZJU</code> <img src="assets/ZJU.png" width="21"></sub> [CBraMod](https://github.com/wjq-learning/CBraMod)<br><sub><code>ICLR 2025</code> 10 Dec 2024</sub><br><sub>73.98 / 36.89 / 88.92</sub><br><sub>#Params (M): 4.0</sub> | <sub><code>ZJU</code> <img src="assets/ZJU.png" width="21"></sub> [CBraMod](https://github.com/wjq-learning/CBraMod)<br><sub><code>ICLR 2025</code> 10 Dec 2024</sub><br><sub>40.77 / 49.33 / 51.02</sub> <br><sub>#Params (M): 4.0</sub>|
+| **5th** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Gram-M](https://github.com/iiieeeve/Gram)<br><sub><code>ICASSP 2025</code> 07 Mar 2025</sub><br><sub>66.77 / 74.06 / 86.74</sub><br><sub>#Params (M): 47.19</sub> | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [LaBraM-Base](https://github.com/935963004/LaBraM)<br><sub><code>ICLR 2024</code> 29 May 2024</sub><br><sub>70.75 / 32.87 / 86.79</sub><br><sub>#Params (M): 5.8</sub> | <sub><code>UIUC</code> <img src="assets/UIUC2.png" width="20"></sub> [BIOT](https://github.com/ycq091044/BIOT)<br><sub><code>NeurIPS 2023</code> 10 May 2023</sub><br><sub>36.29 / 49.06 / 48.18</sub><br><sub>#Params (M): 3.2</sub> |
+| **6th** | <sub><code>SJTU</code> <img src="assets/SJTU.png" width="20"></sub> [Gram-B](https://github.com/iiieeeve/Gram)<br><sub><code>ICASSP 2025</code> 07 Mar 2025</sub><br><sub>66.77 / 74.06 / 86.74</sub><br><sub>#Params (M): 6.0</sub> | <sub><code>UIUC</code> <img src="assets/UIUC2.png" width="20"></sub> [BIOT](https://github.com/ycq091044/BIOT)<br><sub><code>NeurIPS 2023</code> 10 May 2023</sub><br><sub>70.68 / 32.77 / 87.61</sub><br><sub>#Params (M): 3.2</sub> | <sub><code>NUS</code> <img src="assets/NUS.png" width="40"></sub> [CodeBrain](https://github.com/jingyingma01/CodeBrain)<br><sub><code>ICLR 2026</code> 10 Jun 2025</sub><br><sub>28.25 / 38.74 / 40.28</sub><br><sub>#Params (M): 15.17</sub> |
+
+
+
+\* **Note:** The subject-wise train/validation/test split is provided in Data/IIIC_Split.txt.
+</div>  
+
+## 🌌 Introduction
+
+Our EEGDM is a novel self-supervised diffusion model designed for superior EEG signal representation learning. Unlike traditional "tokenization-then-masking" approaches used in EEG foundation models, EEGDM leverages the power of diffusion models to achieve robust and meaningful representations through progressive noise corruption and denoising.
+
 <div align="center">
 <br>
 <img src="assets/ssmdp_cap.png" width="1066">
 
 </div>
 
-<div align="center">
-<br>
-<img src="assets/pool_cap.png" width="1066">
-</div>
 
-<div align="center">
-<br>
-<img src="assets/lft_cap.png" width="1066">
-</div>
-
-
-## 🌌 Introduction
-
-Our EEGDM is a novel self-supervised diffusion model designed for superior EEG signal representation learning. Unlike traditional "tokenization-then-masking" approaches used in EEG foundation models, EEGDM leverages the power of diffusion models to achieve robust and meaningful representations through progressive noise corruption and denoising.
 
 EEGDM is distinguished by three key innovations:
 
@@ -47,6 +66,13 @@ EEGDM is distinguished by three key innovations:
 2. Structured State-Space Model Architecture (SSMDP): EEGDM introduces a specialized neural architecture based on structured state-space models specifically designed for diffusion pre-training, enabling better capture of the temporal dynamics inherent in EEG signals.
 3. Latent Fusion Transformer for Downstream Tasks: The framework incorporates a novel latent fusion transformer (LFT) that effectively utilizes the learned diffusion representations for downstream classification tasks like seizure detection, addressing the challenge of translating generative representations to discriminative tasks.
 The proposed method addresses critical limitations in current EEG analysis, including the difficulty of learning robust representations due to limited high-quality annotations and high signal variability across subjects and conditions, while potentially offering computational advantages over existing transformer-based EEG foundation models.
+
+<div align="center">
+<br>
+<img src="assets/pool_cap.png" width="1066">
+</div>
+
+
 
 ## 😮 Hightlights
 
@@ -58,45 +84,17 @@ The proposed method addresses critical limitations in current EEG analysis, incl
 
 • We empirically compared our method with current state-of-the-art approaches on the multi-event dataset TUEV to show its competitiveness and provided a detailed ablation study to analyze its components.
 
+<div align="center">
+<br>
+<img src="assets/lft_cap.png" width="1066">
+</div>
+
 ## 📈 Main result
 EEGDM outperforms various EEG FMs despite the disadvantage in the volume of training data and the number of trainable parameters. On top of that, finetuning EEGDM will not update the pretrained parameters, allowing one backbone to be used in multiple downstream tasks simultaneously.
 
 <div align="center">
 <br>
 <img src="assets/Result1.png" width="466">
-</div>
-
-## ✂️ Ablation
-DDPM is a framework with many moving parts. In this section, we show that our design choices are necessary for improved performance. 
-
-<div align="center">
-<img src="assets/Result2.png" width="566">
-</div>
-
-
-<div align="center">
-<img src="assets/Result3.png" width="566">
-</div>
-
-<br/>
-Another ablation shows that the latent activities of every part of the diffusion backbones contain classification-efficient representation, and the quality tends to increase as the layers deepen.
-
-<div align="center">
-<img src="assets/Result4.png" width="566">
-</div>
-
-<br/>
-The latent fusion module is the largest trainable component of the LFT. Here, we show that it is irreplaceable by other non-parameterized methods such as average pooling and flattening.
-
-<div align="center">
-<img src="assets/Result5.png" width="566">
-</div>
-
-<br>
-The unique formulation of SSMDP and LFT enables the EEGDM framework to operate at a different sampling rate without retraining, at the cost of degraded performance.
-
-<div align="center">
-<img src="assets/Result6.png" width="566">
 </div>
 
 ## 🔀 Generalize to CHB-MIT
@@ -124,6 +122,8 @@ The results show that EEGDM outperforms other FMs despite having a much smaller 
 *   **[2025-08-11]** Main pages and experiment result update.
 *   **[2025-08-27]** Preprint V2.
 *   **[2025-10-02]** Update README to match preprint V2.
+*   **[2026-02-04]** Update title, preprint V3 and its code are still pending
+*   **[2026-06-06]** IIIC generalization
 
 ## ⚙️ Quick Start
 
@@ -149,6 +149,24 @@ pip install numpy==1.26.4 hydra-core mne lightning pyhealth ema-pytorch diffuser
 We use Weight and Bias (https://wandb.ai/site/) for logging, and you will need an account for that. Alternatively, replace instances of `WandbLogger` with your own logger, check Pytorch Lightning documentation for available options: https://lightning.ai/docs/pytorch/stable/extensions/logging.html 
 
 
+(Optional) To speed up training and inference, consider installing the custom cuda kernel extension in `model/extensions/kernels`. Please refer to the S4 repository for official guidance: https://github.com/state-spaces/s4
+
+We describe our installation process below, 
+1. Install NVCC, make sure you installed the version that matches your CUDA driver (reported by `nvidia-smi`): https://anaconda.org/channels/nvidia/packages/cuda-nvcc/overview
+
+2. Install GCC: https://anaconda.org/channels/conda-forge/packages/gcc/overview , make sure it is not too new for your NVCC: https://stackoverflow.com/a/46380601
+
+3. Do:
+```
+cd model/extensions/kernels
+python setup.py install
+```
+
+4. Check the log carefully, the installation may fail without noticable error trace, if it says `warning: install_lib: 'build/lib' does not exist -- no Python modules to install`, the installation failed.
+
+One error we encountered during installation was a "header file not found", which we solved by adding a compiler flag that specifiy the `cuda_runtime/include` directory (line 14 of `setup.py`)
+
+Another error was related to the `map.h` (wut???), we are not sure about the root cause, but manually expanding the `MAP` macro solved the issue, i.e. replace `MAP(FUNC, a, b, c)` with `FUNC(a); FUNC(b); FUNC(c);`.  
 
 ### Usage Examples:
 
@@ -254,11 +272,19 @@ python main.py report=base
 
 Scripts of certain ablation experiments are put in `src/extra`:
 ```bash
+# Sampling rate generalization
 python main.py extra=reduce_sampling extra.rate=0.95 # 200 Hz (original sampling rate) * 0.95 = 190 Hz
+
+# non-parameterized fusion strategy
 python main.py extra=no_fusion extra.rng_seeding.seed=0
 python main.py extra=report_no_fusion
 python main.py extra=mean_fusion extra.rng_seeding.seed=0
 python main.py extra=report_mean_fusion
+
+# masked-reconstruction pretraining
+python main.py extra=pretrain_recon
+python main.py extra=finetune_recon extra.rng_seeding.seed=0
+
 ```
 All seeds need to be iterated from 0 to 4
 
@@ -271,6 +297,17 @@ python main.py finetune=base_chbmit_bin_filt finetune.rng_seeding.seed=0
 python main.py report=base_chbmit_bin
 ```
 All seeds need to be iterated from 0 to 4
+
+**IIIC**
+
+Using the `backbone.ckpt` pretrained on TUEV, the following commands cache and finetune EEGDM on IIIC, then report the result:
+```bash
+python main.py cache=base_iiic_all
+python main.py finetune=base_iiic_all finetune.rng_seeding.seed=0
+python main.py report=base_iiic_all
+```
+For statistical testing, we iterated RNG seed from 0 to 29, use `report_dist` instead of `report` for parallelized inference (line 53 in `main.py`)
+
 
 ## 🔬 Reproducibility
 Pytorch does not guarantee reproducibility across different environments: https://docs.pytorch.org/docs/stable/notes/randomness.html
@@ -323,7 +360,7 @@ This repo is still under active development and has several pieces of unused/unt
 In particular, the layerwise learning rate and weight decay for LFT will not work. Best to leave `lrd_kwargs` untouched, or set it to `null`.
 
 ## 🗺️ Roadmap
-Current aim: clean up the mess by Dec 2025
+Current aim: clean up the mess by ~~Dec 2025~~ sometime
 * Proper documentation of class parameters and available options, add user-friendly error messages
 * Refactor `model.classifier.MHAStack`: it makes calculating the depth of a layer unnecessarily complicated, hindering the implementation of layerwise learning rate decay
 * Cleanup config files: most files are copy-pasted from the respective `base.yaml`, only changing one or two lines, there must be a better way

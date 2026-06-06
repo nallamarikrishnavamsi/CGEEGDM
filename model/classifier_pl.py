@@ -11,7 +11,7 @@ import os
 from einops import rearrange
 import mne
 from tqdm import tqdm
-from torchmetrics.classification import MulticlassAccuracy, MulticlassCohenKappa, MulticlassF1Score, BinaryStatScores, BinaryAUROC, BinaryPrecisionRecallCurve, BinaryROC
+from torchmetrics.classification import MulticlassAccuracy, MulticlassCohenKappa, MulticlassF1Score, BinaryStatScores, BinaryAUROC, BinaryPrecisionRecallCurve
 from torchmetrics import MetricCollection
 import wandb
 from copy import deepcopy
@@ -53,25 +53,33 @@ class CustomCrossEntropyLoss(torch.nn.Module):
         self.gamma = gamma
         self.mode = mode
         self.pos_weight = None if pos_weight is None else torch.nn.Buffer(torch.tensor([pos_weight]))
-        if mode == "binary":
+        if mode == "binary" or mode == "multibinarylabel":
             assert weight is None
-        elif mode == "multiclass":
+        elif mode == "multiclass" or mode == "multilabel":
             assert pos_weight == None
+        else: raise NotImplementedError()
         # self.is_binary = is_binary
         # if self.is_binary: assert label_smoothing == 0
     
     def forward(self, pred, target):
         match self.mode:
-            case "multiclass":
+            case "multiclass" | "multilabel":
                 ce_loss = F.cross_entropy(pred, target, weight=self.weight, reduction="none", label_smoothing=self.label_smoothing)
             case "binary":
+                _target = target.float() * (1 - self.label_smoothing) + (self.label_smoothing / 2)
+                ce_loss = F.binary_cross_entropy_with_logits(pred, _target, pos_weight=self.pos_weight, reduction="none")
+            case "multibinarylabel":
+                # pred_shape = pred.shape
+                # pred = pred.flatten()
+                # target = target.flatten()
                 _target = target.float() * (1 - self.label_smoothing) + (self.label_smoothing / 2)
                 ce_loss = F.binary_cross_entropy_with_logits(pred, _target, pos_weight=self.pos_weight, reduction="none")
         if self.gamma == 0: return self.reduce_fn(ce_loss)
 
         match self.mode:
-            case "multiclass": prob = F.softmax(pred, dim=-1) * F.one_hot(target, num_classes=pred.shape[-1])
+            case "multiclass" | "multilabel": prob = F.softmax(pred, dim=-1) * F.one_hot(target, num_classes=pred.shape[-1])
             case "binary": prob = F.sigmoid(pred)
+            case "multibinarylabel": prob = F.sigmoid(pred)
         confidence = prob.sum(dim=-1, keepdim=True)
         focal_weight = (1 - confidence) ** self.gamma
         ce_loss = focal_weight * ce_loss
@@ -79,10 +87,10 @@ class CustomCrossEntropyLoss(torch.nn.Module):
         return self.reduce_fn(ce_loss)
 
 class PLClassifier(pl.LightningModule):
-    def __init__(self, diffusion_model_checkpoint, model_kwargs, ema_kwargs, opt_kwargs, sch_kwargs, criterion_kwargs, fwd_with_noise, data_is_cached, run_test_together=False, cls_version=1, lrd_kwargs=None, is_binary=False):
+    def __init__(self, diffusion_model_checkpoint, model_kwargs, ema_kwargs, opt_kwargs, sch_kwargs, criterion_kwargs, fwd_with_noise, data_is_cached, run_test_together=False, cls_version=1, lrd_kwargs=None, is_binary=False, is_multibinarylabel=False, is_multilabel=False, test_data_is_cached=False):
         super().__init__()
         self.save_hyperparameters()
-        self._test_data_is_cached_for_fast_report=False
+        self.test_data_is_cached=test_data_is_cached
         # print(self.hparams)
 
         Classifier = [None, Classifier_v1][cls_version]
@@ -101,7 +109,21 @@ class PLClassifier(pl.LightningModule):
             self.should_update_ema = False
         self.noise_sch = diffusion_model.noise_sch
 
-        if not is_binary:
+        assert int(is_binary) + int(is_multibinarylabel) <= 1 # at most one mode can be True (1)
+
+        if is_binary:
+            assert model_kwargs["n_class"] == 1
+            self.mode = "binary"
+            self.val_metrics = MetricCollection(
+                {
+                    "bacc": BinaryBalanceAccuracy(validate_args=False),
+                    "auprc": BinaryAUPRC(validate_args=False),
+                    "auroc": BinaryAUROC(validate_args=False),
+                },
+                prefix="val/",
+            )
+        else:
+            self.mode = "multiclass"
             self.val_metrics = MetricCollection(
                 {
                     "bacc": MulticlassAccuracy(num_classes=model_kwargs["n_class"], average="macro", validate_args=False), # B C, B
@@ -111,17 +133,7 @@ class PLClassifier(pl.LightningModule):
                 },
                 prefix="val/",
             )
-        else:
-            assert model_kwargs["n_class"] == 1
-            self.val_metrics = MetricCollection(
-                {
-                    "bacc": BinaryBalanceAccuracy(validate_args=False),
-                    "auprc": BinaryAUPRC(validate_args=False),
-                    "auroc": BinaryAUROC(validate_args=False),
-                },
-                prefix="val/",
-            )
-
+        
         self.test_metrics = self.val_metrics.clone(prefix="test/")
         
         # deadlock
@@ -129,7 +141,7 @@ class PLClassifier(pl.LightningModule):
         
         self.criterion = CustomCrossEntropyLoss(
             **criterion_kwargs,
-            mode="binary" if is_binary else "multiclass"
+            mode=self.mode
         )
         
         if fwd_with_noise:
@@ -243,7 +255,7 @@ class PLClassifier(pl.LightningModule):
 
     @torch.no_grad()
     def validation_step(self, batch_input, batch_idx, dataloader_idx=0):
-        loss, pred, label = self.get_loss_pred_label(batch_input, use_ema=True, data_is_cached=self.hparams["data_is_cached"])
+        loss, pred, label = self.get_loss_pred_label(batch_input, use_ema=True, data_is_cached=self.test_data_is_cached if dataloader_idx > 0 and self.hparams["run_test_together"] else self.hparams["data_is_cached"])
 
         if self.hparams["run_test_together"] and dataloader_idx > 0:
             self.log("test/loss", loss, on_epoch=True, on_step=False, sync_dist=True, prog_bar=True, add_dataloader_idx=False, batch_size=pred.shape[0])
@@ -258,7 +270,7 @@ class PLClassifier(pl.LightningModule):
     
     @torch.no_grad()
     def test_step(self, batch_input, batch_idx):
-        loss, pred, label = self.get_loss_pred_label(batch_input, use_ema=True, data_is_cached=self._test_data_is_cached_for_fast_report)
+        loss, pred, label = self.get_loss_pred_label(batch_input, use_ema=True, data_is_cached=self.test_data_is_cached)
         
         self.log("test/loss", loss, on_epoch=True, on_step=False, sync_dist=True, prog_bar=True, add_dataloader_idx=False, batch_size=pred.shape[0])
         self.test_metrics.update(pred, label)
@@ -294,7 +306,7 @@ class PLClassifier(pl.LightningModule):
         self.log_dict(self.test_metrics.compute(), sync_dist=True, prog_bar=True)
         self.test_metrics.reset()
 
-    def get_loss_pred_label(self, batch_input, use_ema=False, data_is_cached=False, rate=1):
+    def get_loss_pred_label(self, batch_input, use_ema=False, data_is_cached=False, rate=1, _return_pred_orig_shape=False):
         assert rate == 1 or not data_is_cached
         model = self.ema if use_ema else self.model
         batch = batch_input[0]
@@ -307,8 +319,11 @@ class PLClassifier(pl.LightningModule):
         else:
             pred = model(batch, data_is_cached=data_is_cached)
         
-        if self.hparams["is_binary"]: pred = pred.flatten()
-        
+        _pred_orig_shape = pred.shape
+        if self.hparams["is_binary"]:
+            pred = pred.flatten()
+        if _return_pred_orig_shape: 
+            return self.criterion(pred, label), pred, label, _pred_orig_shape
         return self.criterion(pred, label), pred, label
 
     def forward_sample(self, batch, force_zero_noise=None):

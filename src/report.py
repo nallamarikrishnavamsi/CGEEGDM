@@ -41,11 +41,17 @@ def entry(config):
     data_count = len(dataset)
 
     all_result = []
+        
+    is_binary = config.get("is_binary", False)
+    custom_metric = config.get("custom_metric", None)
+
+    if custom_metric is not None: assert is_binary
 
     for c in tqdm(checkpoint):
         model = pl_cls.load_from_checkpoint(c, map_location=config["device"])
-        y_true = np.zeros((data_count))
-        y_prob = np.zeros((data_count, config["n_class"]))
+        model = torch.compile(model)
+        y_true = np.zeros((data_count * config.get("n_label_per_sample", 1)))
+        y_prob = np.zeros((data_count * config.get("n_label_per_sample", 1), config["n_class"]))
 
         _idx = 0
         with torch.no_grad():
@@ -59,17 +65,30 @@ def entry(config):
                 y_prob[_idx: _idx + _bs, :] = logit_to_prob_fn(pred).cpu().numpy()
                 _idx += _bs
 
-        if config["is_binary"]: y_prob = y_prob.flatten()
+        if is_binary: y_prob = y_prob.flatten()
 
         result = metric_fn(y_true, y_prob, metrics=config["metrics"])
-        all_result.append(result)
         
-        print(metrics.confusion_matrix(y_true, prob_to_cls_fn(y_prob)))
+        conf = metrics.confusion_matrix(y_true, prob_to_cls_fn(y_prob))
+        
+        if custom_metric is not None:
+            tn, fp, fn, tp = conf.ravel()
+            for name, form in custom_metric:
+                result[name] = eval(form) # ...
+        
+        all_result.append(result)
         
         del model, y_true, y_prob
         gc.collect()
         torch.cuda.empty_cache()
 
+    print(">>>>>>>>")
+    print(conf)
     for m in config["metrics"]:
         arr = np.array(list(map(lambda r: r[m], all_result))) * 100
         print(m, round(arr.mean().item(), 2), round(arr.std().item(), 2))
+    
+    if custom_metric is not None:
+        for m, _ in custom_metric:
+            arr = np.array(list(map(lambda r: r[m], all_result))) * 100
+            print(m, round(arr.mean().item(), 2), round(arr.std().item(), 2))

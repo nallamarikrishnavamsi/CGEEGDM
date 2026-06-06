@@ -34,6 +34,8 @@ def entry(config):
         LatentActivityReducer(**reduce_config)
     )
     model.to(device=device)
+    if (lmax:=config.get("set_lmax", None)) is not None:
+        for l in model[0].model.layers: l.layer.L = lmax
     
     train_loader = torch.utils.data.DataLoader(
         TUEVDataset(
@@ -104,8 +106,45 @@ def entry(config):
         **reduce_config
     }
 
+    if lmax is not None: metadata["lmax"] = lmax
+
     with open(os.path.join(cache_config["root"], "metadata.pkl"), "wb") as f:
         pickle.dump(metadata, f)
     
     # Test data is untouched
     shutil.copytree(os.path.join(data_config["root"], data_config["test_dir"]), os.path.join(cache_config["root"], "test"))
+    
+    # ...unless explicitly told to
+    if cache_config.get("cache_test", False):
+        test_loader = torch.utils.data.DataLoader(
+            TUEVDataset(
+                os.path.join(data_config["root"], data_config["test_dir"]),
+                schema=data_config["schema"],
+                return_index=True,
+            ), 
+            batch_size=data_config["batch_size"],
+            num_workers=4,
+            shuffle=False
+        )
+    
+        cache_test_dir = os.path.join(cache_config["root"], "test_cached")
+
+        if not os.path.isdir(cache_test_dir):
+            os.makedirs(cache_test_dir)
+        for batch_input in tqdm(test_loader, total=len(test_loader.dataset) // data_config["batch_size"] + 1):
+            batch = batch_input[0].to(device=device)
+            label = batch_input[1].to(device=device)
+            local = batch_input[2].to(device=device) if len(batch_input) > 3 else None
+            index = batch_input[-1].to(device=device)
+
+            if config["fwd_with_noise"] is False:
+                times = torch.zeros(batch.shape[0], 1, dtype=torch.long).to(device=device) + config["diffusion_t"]
+                batch = diffusion_model.forward_sample(batch=batch, times=times, noiseless=True)[0]
+            computed = model((batch, local))
+            for c, l, i in zip(computed, label, index):
+                filename = os.path.basename(test_loader.dataset.files[i.item()])
+                with open(os.path.join(cache_test_dir, filename), "wb") as f:
+                    pickle.dump({
+                        "__cache_data__": c.cpu().numpy(),
+                        "__cache_label__": l.cpu().numpy()
+                    }, f)

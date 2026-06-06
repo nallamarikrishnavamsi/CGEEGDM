@@ -1,6 +1,6 @@
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from src import preprocessing, pretrain, finetune, report, caching
+from src import preprocessing, pretrain, finetune, report, report_dist, caching
 
 # Usage:
 # python main.py [preprocessing=?] [pretrain=?] [cache=?] [finetune=?] [report=?] [extra=?]
@@ -50,6 +50,7 @@ def main(config: DictConfig):
     if report_config is not None:
         print("Enter reporting")
         report.entry(report_config)
+        # report_dist.entry(report_config)
 
     if extra_config is not None:
         print("Entering extra:", extra_config["target"]["item"])

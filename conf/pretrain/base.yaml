@@ -10,7 +10,7 @@ trainer:
   devices: [0]
   logger: 
     - _target_: lightning.pytorch.loggers.wandb.WandbLogger
-      name: "backbone_model_base"
+      name: "backbone_model_base_timing"
       project: "proper_pretraining"
       save_dir: "./log/"
   default_root_dir: "./checkpoint"
@@ -18,7 +18,7 @@ trainer:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
       every_n_epochs: 10
-      dirpath: "./checkpoint/pretrain/"
+      dirpath: "./checkpoint/pretrain_timing/"
       filename: "backbone"
   max_epochs: 100
   min_epochs: null
