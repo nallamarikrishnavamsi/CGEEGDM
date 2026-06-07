@@ -124,8 +124,6 @@ class Wavenet(nn.Module):
         local_cond_upsample=[8, 8],
         n_class=22,
         have_null_class=False, # -1 = null class
-        use_icoh=False,
-        icoh_dim=256,
         self_gated=False,
     ):
         super().__init__()
@@ -186,13 +184,8 @@ class Wavenet(nn.Module):
         )
 
 
-        # iCOH conditioning
-        self.use_icoh = use_icoh
-        if use_icoh:
-            self.icoh_proj = nn.Linear(icoh_dim, d_cond)
-
-    def forward(self, x, diffusion_steps, cond, local_cond=None, icoh_embed=None):
-        cond = self.calc_cond(diffusion_steps, cond, icoh_embed)
+    def forward(self, x, diffusion_steps, cond, local_cond=None):
+        cond = self.calc_cond(diffusion_steps, cond)
 
         x = rearrange(x, "B C L -> B L C")
         x = self.in_layer(x)
@@ -208,7 +201,7 @@ class Wavenet(nn.Module):
         all_skip = rearrange(all_skip, "B L C -> B C L")
         return all_skip
     
-    def calc_cond(self, diffusion_steps, cond, icoh_embed=None):
+    def calc_cond(self, diffusion_steps, cond):
         t_embed = calc_diffusion_step_embedding(diffusion_steps, self.d_embed)
         
         t_embed = self.t_embed_in(t_embed).unsqueeze(1) # B 1 D
@@ -218,7 +211,5 @@ class Wavenet(nn.Module):
         cond = self.label_embed(cond)
         cond = self.label_embed_in(cond)
         
-        if self.use_icoh and icoh_embed is not None:
-            cond = cond + self.icoh_proj(icoh_embed).unsqueeze(1)
         return cond + t_embed
 

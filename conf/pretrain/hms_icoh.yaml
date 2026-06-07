@@ -1,0 +1,92 @@
+rng_seeding:
+  seed: 42
+  workers: True
+
+trainer:
+  _target_: lightning.pytorch.Trainer
+  fast_dev_run: False
+  accelerator: 'gpu'
+  strategy: 'auto'
+  devices: 1
+  logger:
+    - _target_: lightning.pytorch.loggers.wandb.WandbLogger
+      name: "hms_icoh_pretrain"
+      project: "eegdm_connectivity"
+      save_dir: "./logs/"
+  default_root_dir: "./checkpoint"
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      save_top_k: 1
+      every_n_epochs: 10
+      dirpath: "./checkpoint/pretrain/hms_icoh/"
+      filename: "backbone_icoh"
+  max_epochs: 100
+  min_epochs: 10
+  check_val_every_n_epoch: 10
+  num_sanity_val_steps: 0
+  log_every_n_steps: 10
+  enable_checkpointing: True
+  enable_progress_bar: True
+  enable_model_summary: True
+  accumulate_grad_batches: 1
+  gradient_clip_val: 1
+  gradient_clip_algorithm: "norm"
+  deterministic: False
+  inference_mode: True
+
+model:
+  use_icoh: True
+  model_kwargs:
+    in_channels: 1
+    d_model: 128
+    d_state: 128
+    n_layer: 20
+    n_ssm: null
+    kernel_init: "diag-lin"
+    kernel_mode: "diag"
+    bidirectional: True
+    d_cond: 512
+    d_cond_embed: 128
+    local_cond_ch: 0
+    n_class: 19        # 19 referential channels for HMS
+    have_null_class: False
+    self_gated: False
+    use_icoh: True
+    icoh_dim: 256
+
+  ema_kwargs:
+    beta: 0.999
+    update_after_step: 100
+    update_every: 10
+
+  noise_sch_kwargs:
+    num_train_timesteps: 50
+    beta_start: 0.0001
+    beta_end: 0.05
+    beta_schedule: "squaredcos_cap_v2"
+    prediction_type: "v_prediction"
+
+  opt_kwargs:
+    lr: 1e-4
+    weight_decay: 0
+
+  gen_kwargs:
+    _target_: builtins.dict
+    n_sample: 4
+    shape: [1, 10000]
+    save_intermediate: False
+    root: "./gen/"
+    save_dir: "hms_icoh"
+    rescale: 1e-4
+    sfreq: 200
+
+data:
+  _target_: builtins.dict
+  root: "./data/hms"
+  train_dir: "train_split"
+  val_dir: "val_split"
+  icoh_cache_dir: "./data/icoh_cache"
+  batch_size: 64
+  num_workers: 4
+  window_sec: 50
+  fs: 200
