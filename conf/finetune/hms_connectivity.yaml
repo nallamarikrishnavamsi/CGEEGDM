@@ -22,7 +22,7 @@ model:
     query: ["gate"]
     reduce: ["std"]
     rescale: False
-    L: 2000
+    L: 2048
     window_size: 200
     window_step: 200
     pool_merge: "share"

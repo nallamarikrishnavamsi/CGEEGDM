@@ -95,11 +95,14 @@ class PLClassifierConnectivity(pl.LightningModule):
         self.noise_sch = pretrain_model.noise_sch
 
         # Projection head for SupCon
-        lft_dim = model_kwargs.get('d_embed', 128) or 128
+        lft_dim = model_kwargs.get('d_embed', None)
+        if lft_dim is None:
+            # classifier_final_act='pool' outputs [B, n_class] directly
+            lft_dim = n_class
+            self.cls_head = nn.Linear(n_class, n_class)  # trainable even when backbone frozen
+        else:
+            self.cls_head = nn.Linear(lft_dim, n_class)
         self.proj_head = ProjectionHead(in_dim=lft_dim, out_dim=proj_dim)
-
-        # Classification head (soft output)
-        self.cls_head = nn.Linear(lft_dim, n_class)
 
         # Freeze backbone Phase 1
         if freeze_backbone:
@@ -117,20 +120,22 @@ class PLClassifierConnectivity(pl.LightningModule):
         }, prefix='val/')
         self.test_metrics = self.val_metrics.clone(prefix='test/')
 
-    def _get_embedding(self, signal, ch_label, icoh_vec):
+    def _get_embedding(self, signal, icoh_vec):
         # icoh_vec → connectivity embedding
-        icoh_emb = self.conn_encoder(icoh_vec)           # [B, 256]
-        # Forward through classifier extractor with iCOH
-        emb = self.model.extractor(signal, ch_label, icoh_embed=icoh_emb)
+        icoh_emb = self.conn_encoder(icoh_vec) if self.conn_encoder is not None else None
+        # Set icoh_embed on extractor so calc_cond can access it with fold support
+        self.model.extractor._icoh_embed = icoh_emb
+        emb = self.model((signal, None))
+        self.model.extractor._icoh_embed = None  # cleanup
         return emb  # [B, D]
 
     def _shared_step(self, batch):
-        signal, ch_label, soft_label, icoh_vec = batch
+        signal, soft_label, icoh_vec = batch
         # signal:     [B, 1, T]
         # ch_label:   [B, 1]
         # soft_label: [B, 6]
         # icoh_vec:   [B, 171]
-        emb    = self._get_embedding(signal, ch_label, icoh_vec)
+        emb    = self._get_embedding(signal, icoh_vec)
         logits = self.cls_head(emb)                       # [B, 6]
         z_proj = self.proj_head(emb)                      # [B, 128]
 
@@ -138,7 +143,7 @@ class PLClassifierConnectivity(pl.LightningModule):
         kl_loss = F.kl_div(
             F.log_softmax(logits, dim=-1),
             soft_label, reduction='batchmean'
-        ) if self.use_kl else torch.tensor(0.0, device=logits.device)
+        ) if self.use_kl else F.cross_entropy(logits, soft_label.argmax(dim=-1))
 
         # SupCon loss (hard labels from argmax of soft)
         hard_label = soft_label.argmax(dim=-1)

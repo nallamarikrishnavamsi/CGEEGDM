@@ -12,76 +12,54 @@ LABEL_COLS = ['seizure_vote','lpd_vote','gpd_vote',
 
 class ConnectivityHMSDataset(Dataset):
     """
-    HMS dataset that returns:
-      [0] signal      : [1, T]        float32  (single bipolar channel, EEGDM style)
-      [1] ch_label    : [1]           long     (channel index, 0-18)
-      [2] soft_label  : [6]           float32  (vote distribution)
-      [3] icoh_vector : [171]         float32  (precomputed iCOH upper triangle)
+    Returns per EEG row:
+      [0] signal   : [19, 2000]  float32  all channels like HMSDataset
+      [1] label    : [6]         float32  soft vote distribution
+      [2] icoh_vec : [171]       float32  precomputed iCOH upper triangle
     """
-    def __init__(self, root, split, icoh_cache_dir, window_sec=50, fs=200):
+    def __init__(self, root, split, icoh_cache_dir, window_sec=10, fs=200):
         self.root           = root
         self.icoh_cache_dir = icoh_cache_dir
         self.window         = window_sec * fs
-        self.fs             = fs
         self.channels       = HMS_CHANNELS
-
-        csv_path = os.path.join(root, f"{split}.csv")
-        self.df  = pd.read_csv(csv_path).reset_index(drop=True)
-        self.eeg_dir = os.path.join(root, "train_eegs")
-
-        # Expand: one row per channel per EEG
-        rows = []
-        for _, row in self.df.iterrows():
-            for ch_idx, ch in enumerate(self.channels):
-                rows.append({
-                    'eeg_id'   : int(row.eeg_id),
-                    'ch_idx'   : ch_idx,
-                    'ch_name'  : ch,
-                    **{c: row[c] for c in LABEL_COLS}
-                })
-        self.samples = pd.DataFrame(rows).reset_index(drop=True)
+        self.eeg_dir        = os.path.join(root, "train_eegs")
+        self.df             = pd.read_csv(os.path.join(root, f"{split}.csv")).reset_index(drop=True)
 
     def __len__(self):
-        return len(self.samples)
+        return len(self.df)
 
     def __getitem__(self, idx):
-        row    = self.samples.iloc[idx]
+        row    = self.df.iloc[idx]
         eeg_id = int(row.eeg_id)
-        ch_idx = int(row.ch_idx)
-        ch     = row.ch_name
 
-        # Load EEG
-        eeg_path = os.path.join(self.eeg_dir, f"{eeg_id}.parquet")
-        eeg_raw  = pd.read_parquet(eeg_path)
-        sig_full = eeg_raw[ch].values.astype(np.float32) if ch in eeg_raw.columns else np.zeros(self.window, dtype=np.float32)
-        sig_full = np.nan_to_num(sig_full, nan=0.0, posinf=0.0, neginf=0.0)
+        # Load all 19 channels — same as HMSDataset
+        eeg_raw = pd.read_parquet(os.path.join(self.eeg_dir, f"{eeg_id}.parquet"))
+        eeg = pd.DataFrame(index=eeg_raw.index)
+        for ch in self.channels:
+            eeg[ch] = eeg_raw[ch] if ch in eeg_raw.columns else 0.0
 
-        # Center crop
-        mid  = len(sig_full) // 2
+        seg = eeg.values.astype(np.float32)
+        mid  = len(seg) // 2
         half = self.window // 2
-        start = max(0, mid - half)
-        end   = min(len(sig_full), mid + half)
-        seg   = sig_full[start:end]
-        if len(seg) < self.window:
-            seg = np.concatenate([seg, np.zeros(self.window - len(seg), dtype=np.float32)])
-        seg = seg[:self.window] / 100.0  # normalize like EEGDM
+        seg  = seg[max(0, mid-half):min(len(seg), mid+half)]
+        if seg.shape[0] < self.window:
+            seg = np.concatenate([seg, np.zeros((self.window-seg.shape[0], seg.shape[1]), dtype=np.float32)])
+        seg = (seg[:self.window] / 100.0).T  # [19, 2000]
+        seg = np.nan_to_num(seg, nan=0.0, posinf=0.0, neginf=0.0)
 
-        signal = torch.tensor(seg, dtype=torch.float32).unsqueeze(0)  # [1, T]
+        signal = torch.tensor(seg, dtype=torch.float32)  # [19, 2000]
 
         # Load iCOH cache
         cache_path = os.path.join(self.icoh_cache_dir, f"{eeg_id}.pt")
         if os.path.exists(cache_path):
-            cache     = torch.load(cache_path, weights_only=True)
-            icoh_vec  = cache['icoh_vector']   # [171]
+            icoh_vec = torch.load(cache_path, weights_only=True)['icoh_vector']
         else:
-            icoh_vec  = torch.zeros(171, dtype=torch.float32)
+            icoh_vec = torch.zeros(171, dtype=torch.float32)
 
         # Soft label
-        votes = np.array([row[c] for c in LABEL_COLS], dtype=np.float32)
+        votes = row[LABEL_COLS].values.astype(np.float32)
         total = votes.sum()
         label = votes / total if total > 0 else np.ones(6, dtype=np.float32) / 6
         soft_label = torch.tensor(label, dtype=torch.float32)
 
-        ch_label = torch.tensor(ch_idx, dtype=torch.long).unsqueeze(0)  # [1]
-
-        return signal, ch_label, soft_label, icoh_vec
+        return signal, soft_label, icoh_vec

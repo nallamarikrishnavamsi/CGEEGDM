@@ -8,7 +8,7 @@ from dataloader.ConnectivityTUEVDataset import ConnectivityHMSDataset
 from model.classifier_connectivity import PLClassifierConnectivity
 
 PRETRAIN_CKPT = "./checkpoint/pretrain/hms_icoh/backbone_icoh.ckpt"
-ORIG_CKPT     = "./checkpoints/backbone.ckpt"  # original EEGDM backbone
+ORIG_CKPT = "./checkpoint/pretrain/hms_baseline/backbone_hms_baseline.ckpt"  # original EEGDM backbone
 ICOH_CACHE    = "./data/icoh_cache"
 DATA_ROOT     = "./data/hms"
 BATCH_SIZE    = 32
@@ -18,12 +18,12 @@ PHASE2_EPOCHS = 20
 # Ablation configs
 ABLATIONS = {
     "B0_eegdm"        : dict(pretrain=ORIG_CKPT,    use_kl=False, use_supcon=False, use_icoh=False, shuffle_icoh=False, random_icoh=False),
-    "B1_random_cond"  : dict(pretrain=PRETRAIN_CKPT, use_kl=False, use_supcon=False, use_icoh=True,  shuffle_icoh=False, random_icoh=True),
-    "A1_shuffled_icoh": dict(pretrain=PRETRAIN_CKPT, use_kl=False, use_supcon=False, use_icoh=True,  shuffle_icoh=True,  random_icoh=False),
-    "A2_real_icoh"    : dict(pretrain=PRETRAIN_CKPT, use_kl=False, use_supcon=False, use_icoh=True,  shuffle_icoh=False, random_icoh=False),
-    "A3_icoh_dropout" : dict(pretrain=PRETRAIN_CKPT, use_kl=False, use_supcon=False, use_icoh=True,  shuffle_icoh=False, random_icoh=False, ch_dropout=0.2),
+    "B1_random_cond"  : dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=False, use_icoh=True,  shuffle_icoh=False, random_icoh=True),
+    "A1_shuffled_icoh": dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=False, use_icoh=True,  shuffle_icoh=True,  random_icoh=False),
+    "A2_real_icoh"    : dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=False, use_icoh=True,  shuffle_icoh=False, random_icoh=False),
+    "A3_icoh_dropout" : dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=False, use_icoh=True,  shuffle_icoh=False, random_icoh=False, ch_dropout=0.2),
     "A4_icoh_kl"      : dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=False, use_icoh=True,  shuffle_icoh=False, random_icoh=False),
-    "A5_icoh_supcon"  : dict(pretrain=PRETRAIN_CKPT, use_kl=False, use_supcon=True,  use_icoh=True,  shuffle_icoh=False, random_icoh=False),
+    "A5_icoh_supcon"  : dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=True,  use_icoh=True,  shuffle_icoh=False, random_icoh=False),
     "A5b_kl_supcon"   : dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=True,  use_icoh=True,  shuffle_icoh=False, random_icoh=False),
     "A6_full"         : dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=True,  use_icoh=True,  shuffle_icoh=False, random_icoh=False, ch_dropout=0.2),
     "A7_frozen_enc"   : dict(pretrain=PRETRAIN_CKPT, use_kl=True,  use_supcon=True,  use_icoh=True,  shuffle_icoh=False, random_icoh=False, freeze_conn_enc=True),
@@ -31,6 +31,7 @@ ABLATIONS = {
 
 BASE_MODEL_KWARGS = dict(
     start=0, end=None, diffusion_t=1,
+    use_cond=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
     query=["gate"], reduce=["std"], rescale=False,
     L=2000, window_size=200, window_step=200,
     pool_merge="share", multi_query_merge="seq",
@@ -83,7 +84,7 @@ def run_one(name, cfg, train_loader, val_loader, test_loader, steps_per_epoch):
     def make_trainer(max_epochs, ckpt_filename, patience):
         return pl.Trainer(
             max_epochs=max_epochs, accelerator='gpu', devices=1,
-            precision='16-mixed', log_every_n_steps=10,
+            precision='32-true', log_every_n_steps=10,
             num_sanity_val_steps=0, default_root_dir=f'logs/ablation/{name}',
             callbacks=[
                 pl.callbacks.ModelCheckpoint(
@@ -135,7 +136,9 @@ def main():
             r = run_one(name, cfg, train_loader, val_loader, test_loader, steps_per_epoch)
             all_results[name] = r
         except Exception as e:
+            import traceback
             print(f"FAILED {name}: {e}")
+            traceback.print_exc()
             all_results[name] = {}
 
     print(f"\n{'='*60}\nABLATION SUMMARY\n{'='*60}")
