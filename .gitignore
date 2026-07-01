@@ -1,11 +1,13 @@
 __pycache__/
 *.pyc
 *.pth
-*.ckpt
+checkpoint/
+checkpoints/
 data/
 logs/
-wandb/
-checkpoint/
+gen/
 outputs/
+wandb/
+results/
 *.egg-info/
 .hydra/

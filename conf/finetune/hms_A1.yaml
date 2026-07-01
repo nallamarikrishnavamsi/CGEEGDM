@@ -4,7 +4,7 @@ rng_seeding:
 
 trainer:
   _target_: lightning.pytorch.Trainer
-  max_epochs: 30
+  max_epochs: 50
 
 model:
   backbone_kwargs:
@@ -22,12 +22,12 @@ model:
     n_class: 19
     have_null_class: False
     self_gated: False
-  pretrain_checkpoint: "./checkpoint/pretrain/hms_icoh/backbone_icoh.ckpt"
+  pretrain_checkpoint: "./checkpoints/small50/A1/last.ckpt"
   n_class: 6
   lambda_supcon: 0.1
   proj_dim: 128
   use_kl: True
-  use_supcon: True
+  use_supcon: False
   phase1_epochs: 20
   phase2_epochs: 30
   model_kwargs:
@@ -85,9 +85,9 @@ model:
 data:
   _target_: builtins.dict
   root: "./data/hms"
-  train_dir: "train_split"
-  val_dir: "val_split"
-  test_dir: "test_split"
+  train_dir: "finetune_train"
+  val_dir: "finetune_val"
+  test_dir: "finetune_test"
   icoh_cache_dir: "./data/icoh_cache"
   batch_size: 32
   num_workers: 4
