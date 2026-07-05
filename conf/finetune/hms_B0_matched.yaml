@@ -1,0 +1,91 @@
+rng_seeding:
+  seed: 42
+  workers: True
+trainer:
+  _target_: lightning.pytorch.Trainer
+  max_epochs: 30
+model:
+  backbone_kwargs:
+    in_channels: 1
+    d_model: 128
+    d_state: 128
+    n_layer: 20
+    n_ssm: null
+    kernel_init: "diag-lin"
+    kernel_mode: "diag"
+    bidirectional: True
+    d_cond: 512
+    d_cond_embed: 128
+    local_cond_ch: 0
+    n_class: 19
+    have_null_class: False
+    self_gated: False
+  pretrain_checkpoint: "./checkpoints/backbone.ckpt"
+  n_class: 6
+  lambda_supcon: 0.1
+  proj_dim: 128
+  use_kl: True
+  use_supcon: False
+  phase1_epochs: 10
+  phase2_epochs: 20
+  model_kwargs:
+    start: 0
+    end: null
+    diffusion_t: 1
+    use_cond: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
+    query: ["gate"]
+    reduce: ["std"]
+    rescale: False
+    L: 2000
+    window_size: 200
+    window_step: 200
+    pool_merge: "share"
+    multi_query_merge: "seq"
+    d_embed: null
+    init_weight: False
+    embed_query: False
+    d_query_embed: null
+    have_ch_pos_embed: False
+    cat_ch_pos_embed: True
+    ch_pos_emb_sym: "mirror"
+    ch_order: ["Fp1","F3","C3","P3","F7","T3","T5","O1",
+               "Fz","Cz","Pz","Fp2","F4","C4","P4","F8","T4","T6","O2"]
+    clst_dim: "TP"
+    clst_pos_embed_dim: ""
+    n_clst: 16
+    stack_struct: "scf"
+    num_heads: 8
+    ff: 4
+    dropout: 0.1
+    have_crossnorm: False
+    across_pool_stack_struct: ""
+    n_ap_clst: 0
+    ap_clst_dim: "T"
+    classifier_use_ap_clst: False
+    classifier_have_pos_embed: True
+    classifier_pos_embed_dim: "TPN"
+    classifier_stack_struct: "sfsfsfsfsfsfsfsf"
+    classifier_final_act: "pool"
+    n_class: 6
+  ema_kwargs:
+    beta: 0.999
+    update_after_step: 100
+    update_every: 10
+  opt_kwargs:
+    lr: 3e-5
+    weight_decay: 0.1
+    betas: [0.9, 0.98]
+  sch_kwargs:
+    pct_start: 0.1
+    max_lr: 1e-4
+data:
+  _target_: builtins.dict
+  root: "/home/dsamantaai/krishna/data"
+  train_dir: "full_train"
+  val_dir: "pretrain_val"
+  test_dir: "finetune_test"
+  icoh_cache_dir: "./data/icoh_cache"
+  batch_size: 32
+  num_workers: 4
+  window_sec: 10
+  fs: 200

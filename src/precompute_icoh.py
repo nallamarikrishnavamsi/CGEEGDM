@@ -11,7 +11,7 @@ from src.icoh import compute_icoh, icoh_upper_triangle
 HMS_CHANNELS = ['Fp1','F3','C3','P3','F7','T3','T5','O1',
                 'Fz','Cz','Pz','Fp2','F4','C4','P4','F8','T4','T6','O2']
 
-EEG_DIR   = './data/hms/train_eegs'
+EEG_DIR   = '/home/dsamantaai/krishna/data/train_eegs'
 CACHE_DIR = 'data/icoh_cache'
 FS        = 200
 
@@ -28,14 +28,7 @@ def process_one(eeg_id):
                 sig[i] = eeg_raw[ch].values.astype(np.float32)
         sig = np.nan_to_num(sig, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # Bandpass + notch before iCOH
-        from scipy.signal import butter, filtfilt, iirnotch
-        nyq = FS / 2
-        b, a = butter(4, [0.5/nyq, 40.0/nyq], btype='band')
-        sig  = filtfilt(b, a, sig, axis=-1)
-        b, a = iirnotch(50.0/nyq, 30)
-        sig  = filtfilt(b, a, sig, axis=-1)
-
+        # Filtering is handled inside compute_icoh()
         # Use full 50s signal for a robust, global connectivity estimate
         A = compute_icoh(sig, fs=FS)          # [19, 19]
         v = icoh_upper_triangle(A)            # [171]
@@ -52,11 +45,9 @@ def process_one(eeg_id):
 if __name__ == '__main__':
     os.makedirs(CACHE_DIR, exist_ok=True)
     csv_files = [
-        'data/hms/pretrain_train.csv',
-        'data/hms/pretrain_val.csv',
-        'data/hms/finetune_train.csv',
-        'data/hms/finetune_val.csv',
-        'data/hms/finetune_test.csv',
+        '/home/dsamantaai/krishna/data/full106k_train.csv',
+        '/home/dsamantaai/krishna/data/full106k_val.csv',
+        '/home/dsamantaai/krishna/data/full106k_test.csv',
     ]
     all_ids = set()
     for csv in csv_files:

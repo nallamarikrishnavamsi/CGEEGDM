@@ -15,11 +15,9 @@ class GraphLatentModulation(nn.Module):
     tokens : [B, ..., H]   latent EEG tokens
     graph  : [B, G]        graph embedding (broadcast across token dims)
     """
-    def __init__(self, token_dim, graph_dim=256, hidden_dim=256, residual_scale=0.1):
+    def __init__(self, token_dim, graph_dim=256, hidden_dim=256):
         super().__init__()
         self.token_dim = token_dim
-        # Learnable scalar — model decides how much graph info to inject
-        self.residual_scale = nn.Parameter(torch.tensor(float(residual_scale)))
         in_dim = token_dim + graph_dim
 
         self.alpha_net = nn.Sequential(
