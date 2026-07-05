@@ -1,43 +1,39 @@
 import numpy as np
-from scipy.signal import csd, welch, butter, filtfilt, iirnotch
+from scipy.signal import csd, welch
 
 
-def bandpass_filter(signal, lo=0.5, hi=40.0, fs=200):
-    """Bandpass 0.5-40Hz + 50Hz notch filter."""
-    nyq = fs / 2
-    b, a = butter(4, [lo/nyq, hi/nyq], btype='band')
-    signal = filtfilt(b, a, signal, axis=-1)
-    b, a = iirnotch(50.0/nyq, 30)
-    signal = filtfilt(b, a, signal, axis=-1)
-    return signal
-
-
-def compute_icoh(signal, fs=200, apply_filter=True):
+def compute_icoh(signal, fs=200):
     """
-    Compute Imaginary Coherence matrix.
+    Compute Imaginary Coherence matrix — correct per-frequency formula
+    (Nolte et al. 2004).
+
     signal: [C, T] numpy float32
     returns: [C, C] float32
-    Formula: iCOH(i,j) = mean(|Im(Cxy)|) / sqrt(Pxx * Pyy)
-    """
-    if apply_filter:
-        signal = bandpass_filter(signal, fs=fs)
 
+    icoh(f) = Im(Cxy(f)) / sqrt(Pxx(f) * Pyy(f))   <- per frequency bin
+    icoh    = mean_f( |icoh(f)| )                   <- then average
+    """
     C = signal.shape[0]
     A = np.zeros((C, C), dtype=np.float32)
     nperseg = min(signal.shape[1], 256)
 
-    pxx = np.array([
-        welch(signal[i], fs=fs, nperseg=nperseg)[1].mean()
+    # Per-frequency PSD for every channel: [C, F]
+    pxx_f = np.array([
+        welch(signal[i], fs=fs, nperseg=nperseg)[1]
         for i in range(C)
-    ])
+    ])  # [C, F]
 
     for i in range(C):
         for j in range(i + 1, C):
-            _, Cxy = csd(signal[i], signal[j], fs=fs, nperseg=nperseg)
-            icoh = np.mean(np.abs(np.imag(Cxy))) / (np.sqrt(pxx[i] * pxx[j]) + 1e-8)
+            _, Cxy_f = csd(signal[i], signal[j], fs=fs, nperseg=nperseg)  # [F] complex
+
+            denom = np.sqrt(pxx_f[i] * pxx_f[j]) + 1e-8       # [F]
+            icoh_f = np.imag(Cxy_f) / denom                    # [F], per-frequency ratio
+            icoh = np.mean(np.abs(icoh_f))                     # scalar, average AFTER ratio
+
             A[i, j] = A[j, i] = float(icoh)
 
-    # Normalize to [0, 1]
+    # Normalize matrix to [0, 1] for stable conditioning input
     max_val = A.max()
     if max_val > 1e-8:
         A = A / max_val
@@ -48,7 +44,8 @@ def compute_icoh(signal, fs=200, apply_filter=True):
 def icoh_upper_triangle(A):
     """
     Extract upper triangle from symmetric iCOH matrix.
-    A: [C, C] -> [C*(C-1)/2] = [171] for C=19
+    A: [C, C]
+    returns: [C*(C-1)/2] float32  (171 for C=19)
     """
     idx = np.triu_indices(A.shape[0], k=1)
     return A[idx].astype(np.float32)
