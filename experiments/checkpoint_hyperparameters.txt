@@ -1,0 +1,33 @@
+================================================================================
+checkpoint/baseline/best.ckpt
+================================================================================
+classifier_model_kwargs: {'start': 0, 'end': None, 'diffusion_t': 1, 'query': ['gate'], 'reduce': ['std'], 'rescale': False, 'L': 2000, 'window_size': 200, 'window_step': 200, 'pool_merge': 'share', 'multi_query_merge': 'seq', 'd_embed': None, 'init_weight': False, 'embed_query': False, 'd_query_embed': None, 'have_ch_pos_embed': False, 'cat_ch_pos_embed': True, 'ch_pos_emb_sym': 'mirror', 'ch_order': ['Fp1', 'F3', 'C3', 'P3', 'F7', 'T3', 'T5', 'O1', 'Fz', 'Cz', 'Pz', 'Fp2', 'F4', 'C4', 'P4', 'F8', 'T4', 'T6', 'O2'], 'clst_dim': 'TP', 'clst_pos_embed_dim': '', 'n_clst': 16, 'stack_struct': 'scf', 'num_heads': 8, 'ff': 4, 'dropout': 0, 'have_crossnorm': False, 'across_pool_stack_struct': '', 'n_ap_clst': 0, 'ap_clst_dim': 'T', 'classifier_use_ap_clst': False, 'classifier_have_pos_embed': True, 'classifier_pos_embed_dim': 'TPN', 'classifier_stack_struct': 'sfsfsfsfsfsfsfsf', 'classifier_final_act': 'pool', 'n_class': 6, 'use_cond': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}
+opt_kwargs: {'lr': 0.0001, 'weight_decay': 0.05, 'betas': [0.9, 0.98]}
+sch_kwargs: {'max_lr': 0.0005, 'total_steps': 8040, 'pct_start': 0.1}
+n_class: 6
+lambda_align: 0.0
+use_graph: False
+backbone_ckpt: checkpoints/backbone.ckpt
+
+================================================================================
+checkpoint/abl_GC_noalign/best.ckpt
+================================================================================
+classifier_model_kwargs: {'start': 0, 'end': None, 'diffusion_t': 1, 'query': ['gate'], 'reduce': ['std'], 'rescale': False, 'L': 2000, 'window_size': 200, 'window_step': 200, 'pool_merge': 'share', 'multi_query_merge': 'seq', 'd_embed': None, 'init_weight': False, 'embed_query': False, 'd_query_embed': None, 'have_ch_pos_embed': False, 'cat_ch_pos_embed': True, 'ch_pos_emb_sym': 'mirror', 'ch_order': ['Fp1', 'F3', 'C3', 'P3', 'F7', 'T3', 'T5', 'O1', 'Fz', 'Cz', 'Pz', 'Fp2', 'F4', 'C4', 'P4', 'F8', 'T4', 'T6', 'O2'], 'clst_dim': 'TP', 'clst_pos_embed_dim': '', 'n_clst': 16, 'stack_struct': 'scf', 'num_heads': 8, 'ff': 4, 'dropout': 0, 'have_crossnorm': False, 'across_pool_stack_struct': '', 'n_ap_clst': 0, 'ap_clst_dim': 'T', 'classifier_use_ap_clst': False, 'classifier_have_pos_embed': True, 'classifier_pos_embed_dim': 'TPN', 'classifier_stack_struct': 'sfsfsfsfsfsfsfsf', 'classifier_final_act': 'pool', 'n_class': 6, 'use_cond': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}
+opt_kwargs: {'lr': 0.0001, 'weight_decay': 0.05, 'betas': [0.9, 0.98]}
+sch_kwargs: {'max_lr': 0.0005, 'total_steps': 139600, 'pct_start': 0.1}
+n_class: 6
+lambda_align: 0.0
+use_graph: True
+backbone_ckpt: checkpoints/backbone.ckpt
+
+================================================================================
+checkpoint/graphcond_full106k/best.ckpt
+================================================================================
+classifier_model_kwargs: {'start': 0, 'end': None, 'diffusion_t': 1, 'query': ['gate'], 'reduce': ['std'], 'rescale': False, 'L': 2000, 'window_size': 200, 'window_step': 200, 'pool_merge': 'share', 'multi_query_merge': 'seq', 'd_embed': None, 'init_weight': False, 'embed_query': False, 'd_query_embed': None, 'have_ch_pos_embed': False, 'cat_ch_pos_embed': True, 'ch_pos_emb_sym': 'mirror', 'ch_order': ['Fp1', 'F3', 'C3', 'P3', 'F7', 'T3', 'T5', 'O1', 'Fz', 'Cz', 'Pz', 'Fp2', 'F4', 'C4', 'P4', 'F8', 'T4', 'T6', 'O2'], 'clst_dim': 'TP', 'clst_pos_embed_dim': '', 'n_clst': 16, 'stack_struct': 'scf', 'num_heads': 8, 'ff': 4, 'dropout': 0, 'have_crossnorm': False, 'across_pool_stack_struct': '', 'n_ap_clst': 0, 'ap_clst_dim': 'T', 'classifier_use_ap_clst': False, 'classifier_have_pos_embed': True, 'classifier_pos_embed_dim': 'TPN', 'classifier_stack_struct': 'sfsfsfsfsfsfsfsf', 'classifier_final_act': 'pool', 'n_class': 6, 'use_cond': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}
+opt_kwargs: {'lr': 0.0001, 'weight_decay': 0.05, 'betas': [0.9, 0.98]}
+sch_kwargs: {'max_lr': 0.0005, 'total_steps': 8040, 'pct_start': 0.1}
+n_class: 6
+lambda_align: 0.1
+use_graph: True
+backbone_ckpt: checkpoints/backbone.ckpt
+

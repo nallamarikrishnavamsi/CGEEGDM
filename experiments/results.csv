@@ -1,0 +1,4 @@
+Experiment,Dataset,Epochs,LR,MaxLR,Graph,Alignment,BestEpoch,ValKappa,TestKappa,TestBAcc,TestWF1,Checkpoint
+baseline,full106k,30,1e-4,5e-4,0,0.0,,,,,checkpoint/baseline/best.ckpt
+graph_noalign,full106k,30,1e-4,5e-4,1,0.0,,,,,checkpoint/abl_GC_noalign/best.ckpt
+graph_align,full106k,30,1e-4,5e-4,1,0.1,,,,,checkpoint/graphcond_full106k/best.ckpt

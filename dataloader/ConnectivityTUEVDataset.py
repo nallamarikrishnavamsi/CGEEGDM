@@ -56,3 +56,37 @@ class ConnectivityHMSDataset(Dataset):
         label = votes / total if total > 0 else np.ones(6, dtype=np.float32) / 6
 
         return signal, torch.tensor(label, dtype=torch.float32), icoh_vec
+
+
+class ConnectivityHMSDatasetCached(Dataset):
+    """
+    Fast version of ConnectivityHMSDataset that loads from precomputed
+    signal cache instead of raw parquet files.
+    Cache format: {eeg_id}.pt with keys 'signal' [19,2000] and 'icoh_vec' [171]
+    """
+    def __init__(self, root, split, signal_cache_dir, window_sec=10, fs=200):
+        self.signal_cache_dir = signal_cache_dir
+        self.df = pd.read_csv(os.path.join(root, f"{split}.csv")).reset_index(drop=True)
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        row    = self.df.iloc[idx]
+        eeg_id = int(row.eeg_id)
+
+        cache_path = os.path.join(self.signal_cache_dir, f"{eeg_id}.pt")
+        if os.path.exists(cache_path):
+            cache    = torch.load(cache_path, weights_only=True)
+            signal   = cache['signal']    # [19, 2000]
+            icoh_vec = cache['icoh_vec']  # [171]
+        else:
+            signal   = torch.zeros(19, 2000, dtype=torch.float32)
+            icoh_vec = torch.zeros(171, dtype=torch.float32)
+
+        votes = row[LABEL_COLS].values.astype(np.float32)
+        total = votes.sum()
+        label = votes / total if total > 0 else np.ones(6, dtype=np.float32) / 6
+        soft_label = torch.tensor(label, dtype=torch.float32)
+
+        return signal, soft_label, icoh_vec

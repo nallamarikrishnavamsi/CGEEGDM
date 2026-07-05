@@ -81,15 +81,8 @@ class LatentActivityExtractor(nn.Module):
         
         diffusion_steps = self.diffusion_steps.repeat(B * fold, 1)
         cond = self.cond.repeat(B * fold, 1)
-        # _icoh: [B,256] -> [B*C*fold,256]
-        # x after init_rearr([B,C,T]): [B*C*fold,L,d]
-        # cond after repeat(B*fold): [C*B*fold,1,512] — matches x
-        _icoh = getattr(self, '_icoh_embed', None)
-        if _icoh is not None:
-            # _icoh=[B,256], need [B*C*fold,256]
-            _icoh = _icoh.repeat_interleave(self.C * fold, dim=0)
-            _icoh = _icoh.to(diffusion_steps.device)
-        cond = self.model.calc_cond(diffusion_steps, cond, icoh_embed=_icoh)
+        
+        cond = self.model.calc_cond(diffusion_steps, cond)
 
         x = rearrange(x, "B H L -> B L H")
         x = self.model.in_layer(x)

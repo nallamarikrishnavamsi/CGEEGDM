@@ -14,12 +14,10 @@ from sklearn.neighbors import KernelDensity
 import matplotlib.pyplot as plt
 
 class PLDiffusionModel(pl.LightningModule):
-    def __init__(self, model_kwargs, ema_kwargs, noise_sch_kwargs, opt_kwargs, gen_kwargs, target_dist=None, kde_kwargs=None, use_icoh=False, conn_encoder=None):
+    def __init__(self, model_kwargs, ema_kwargs, noise_sch_kwargs, opt_kwargs, gen_kwargs, target_dist=None, kde_kwargs=None):
         if target_dist is not None: assert kde_kwargs is not None
         super().__init__()
         self.save_hyperparameters()
-        self.use_icoh = use_icoh
-        self.conn_encoder = conn_encoder
 
         self.model = Wavenet(**model_kwargs)
         self.ema = EMA(self.model, **ema_kwargs)
@@ -42,13 +40,11 @@ class PLDiffusionModel(pl.LightningModule):
         batch = batch_input[0]
         label = batch_input[1].view(-1, 1)
         local_cond = batch_input[2] if len(batch_input) > 2 else None
-        icoh_vec = batch_input[3] if (self.use_icoh and len(batch_input) > 3) else None
-        icoh_embed = self.conn_encoder(icoh_vec) if (self.conn_encoder is not None and icoh_vec is not None) else None
 
         noisy_signal, noise, times = self.forward_sample(batch)
         target = self.get_pred_target(batch, noise, times)
 
-        pred = self.model(noisy_signal, times, label, None, icoh_embed=icoh_embed)
+        pred = self.model(noisy_signal, times, label, local_cond)
 
         loss = F.mse_loss(pred, target)
         self.log("train/mse_loss", loss, on_epoch=True, on_step=False)
@@ -65,13 +61,11 @@ class PLDiffusionModel(pl.LightningModule):
         batch = batch_input[0]
         label = batch_input[1].view(-1, 1)
         local_cond = batch_input[2] if len(batch_input) > 2 else None
-        icoh_vec = batch_input[3] if (self.use_icoh and len(batch_input) > 3) else None
-        icoh_embed = self.conn_encoder(icoh_vec) if (self.conn_encoder is not None and icoh_vec is not None) else None
 
         noisy_signal, noise, times = self.forward_sample(batch)
         target = self.get_pred_target(batch, noise, times)
 
-        pred = self.ema(noisy_signal, times, label, None, icoh_embed=icoh_embed)
+        pred = self.ema(noisy_signal, times, label, local_cond)
 
         loss = F.mse_loss(pred, target)
         
