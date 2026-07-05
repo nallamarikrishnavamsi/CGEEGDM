@@ -36,6 +36,7 @@ class GraphConditionedClassifier(nn.Module):
         num_nodes    : number of EEG channels (default 19)
         gcn_hidden   : hidden dim of GCN layers (default 128)
         gcn_layers   : number of GCN layers (default 3)
+        use_graph    : if False, acts as pure baseline (no graph conditioning)
     """
     def __init__(
         self,
@@ -45,28 +46,26 @@ class GraphConditionedClassifier(nn.Module):
         num_nodes  = 19,
         gcn_hidden = 128,
         gcn_layers = 3,
+        use_graph  = True,
     ):
         super().__init__()
-
-        # Original classifier — all weights preserved, API unchanged
         self.classifier = classifier
-
-        # New graph conditioning modules
+        self.use_graph  = use_graph
         self.graph_encoder   = GraphEncoder(
             num_nodes  = num_nodes,
             hidden_dim = gcn_hidden,
             out_dim    = graph_dim,
             layers     = gcn_layers,
-        )
+        ) if use_graph else None
         self.graph_modulator = GraphLatentModulation(
             token_dim = token_dim,
             graph_dim = graph_dim,
-        )
+        ) if use_graph else None
         self.alignment_head = AlignmentHead(
             token_dim = token_dim,
             graph_dim = graph_dim,
             proj_dim  = 128,
-        )
+        ) if use_graph else None
 
     def forward(self, input, icoh_vec, data_is_cached=False, rate=1, return_alignment=False):
         """
@@ -90,25 +89,30 @@ class GraphConditionedClassifier(nn.Module):
             ]
 
         # ── Step 2: Graph-conditioned FiLM on latent tokens ───────────────
-        # icoh_vec [B,171] → adjacency [B,19,19] → graph_emb [B,256]
-        adj       = vector_to_adjacency(icoh_vec)       # [B, 19, 19]
-        graph_emb = self.graph_encoder(adj)             # [B, graph_dim]
-
-        # tokens shape: [B, n_layer, 1, n_pool, 1, C, H]
-        # FiLM broadcasts over all dims except B and H
-        tokens = self.graph_modulator(tokens, graph_emb)  # same shape
+        if self.use_graph:
+            adj       = vector_to_adjacency(icoh_vec)
+            graph_emb = self.graph_encoder(adj)
+            tokens    = self.graph_modulator(tokens, graph_emb)
+        else:
+            graph_emb = None
 
         # ── Step 3: Decode and classify (unchanged from EEGDM) ────────────
-        if return_alignment:
-            z_token, z_graph = self.alignment_head(tokens, graph_emb)
         rep = self.classifier.decoder(tokens)[self.classifier.use_rep_idx]
         cls = self.classifier.classifier(rep)
+
         if return_alignment:
+            if self.use_graph:
+                z_token, z_graph = self.alignment_head(tokens, graph_emb)
+            else:
+                z_token, z_graph = None, None
             return cls, z_token, z_graph
+
         return cls
 
     def get_new_params(self):
         """Return only the new graph conditioning parameters."""
+        if not self.use_graph:
+            return []
         return list(self.graph_encoder.parameters()) + \
                list(self.graph_modulator.parameters()) + \
                list(self.alignment_head.parameters())

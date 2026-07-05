@@ -7,8 +7,11 @@ before loading, per transfer-learning philosophy of EEGDM.
 """
 import os, sys, math, argparse
 import torch
+from ema_pytorch import EMA
 import torch.nn.functional as F
 import lightning.pytorch as pl
+from lightning.pytorch.loggers import WandbLogger
+import wandb
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
@@ -19,8 +22,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from model.diffusion_model_pl import PLDiffusionModel
 from model.classifier import Classifier
 from model.graph_conditioned_classifier import GraphConditionedClassifier
-from model.alignment import cosine_alignment_loss, contrastive_alignment_loss
-from dataloader.ConnectivityTUEVDataset import ConnectivityHMSDataset
+from model.alignment import cosine_alignment_loss
+from dataloader.ConnectivityTUEVDataset import ConnectivityHMSDatasetCached
 
 
 def load_original_backbone(ckpt_path, device='cpu'):
@@ -43,7 +46,6 @@ def load_original_backbone(ckpt_path, device='cpu'):
         'kernel_mode': 'diag', 'bidirectional': True,
         'd_cond': 512, 'd_cond_embed': 128, 'local_cond_ch': 0,
         'n_class': 19, 'have_null_class': False, 'self_gated': False,
-        'use_icoh': False, 'icoh_dim': 256,
     }
     ema_kwargs       = {'beta': 0.999, 'update_after_step': 100, 'update_every': 10}
     noise_sch_kwargs = {'num_train_timesteps': 50, 'beta_start': 0.0001,
@@ -57,7 +59,7 @@ def load_original_backbone(ckpt_path, device='cpu'):
     pretrain_model = PLDiffusionModel(
         model_kwargs=model_kwargs, ema_kwargs=ema_kwargs,
         noise_sch_kwargs=noise_sch_kwargs, opt_kwargs=opt_kwargs,
-        gen_kwargs=gen_kwargs, use_icoh=False, conn_encoder=None,
+        gen_kwargs=gen_kwargs,
     )
     pretrain_model.load_state_dict(state_dict, strict=False)
     backbone = pretrain_model.ema.ema_model
@@ -66,12 +68,12 @@ def load_original_backbone(ckpt_path, device='cpu'):
 
 class PLGraphConditionedClassifier(pl.LightningModule):
     def __init__(self, classifier_model_kwargs, opt_kwargs, sch_kwargs,
-                 n_class=6, lambda_align=0.1, align_type='cosine',
-                 freeze_backbone=True, backbone_ckpt='checkpoints/backbone.ckpt'):
+                 n_class=6, lambda_align=0.1,
+                 use_graph=True,
+                 backbone_ckpt='checkpoints/backbone.ckpt'):
         super().__init__()
         self.save_hyperparameters()
         self.lambda_align = lambda_align
-        self.align_type   = align_type
 
         backbone = load_original_backbone(backbone_ckpt)
 
@@ -83,15 +85,20 @@ class PLGraphConditionedClassifier(pl.LightningModule):
             num_nodes  = 19,
             gcn_hidden = 128,
             gcn_layers = 3,
+            use_graph  = use_graph,
         )
 
-        if freeze_backbone:
-            for p in self.model.classifier.extractor.parameters():
-                p.requires_grad = False
-            for p in self.model.classifier.reducer.parameters():
-                p.requires_grad = False
-            for p in self.model.classifier.decoder.parameters():
-                p.requires_grad = False
+        # EMA on classifier — matches original EEGDM
+        self.ema = EMA(
+            self.model,
+            beta=0.999,
+            update_after_step=100,
+            update_every=10,
+            ignore_startswith_names={"classifier.extractor", "classifier.reducer"},
+        )
+        self.should_update_ema = True
+
+        # No freezing — train end-to-end like original EEGDM
 
         self.val_metrics = MetricCollection({
             'kappa': MulticlassCohenKappa(num_classes=n_class, validate_args=False),
@@ -100,20 +107,23 @@ class PLGraphConditionedClassifier(pl.LightningModule):
         }, prefix='val/')
         self.test_metrics = self.val_metrics.clone(prefix='test/')
 
-    def _shared_step(self, batch):
+    def _shared_step(self, batch, use_ema=False):
         signal, soft_label, icoh_vec = batch
-        logits, z_token, z_graph = self.model((signal, None), icoh_vec, return_alignment=True)
+        model = self.ema if use_ema else self.model
+        logits, z_token, z_graph = model((signal, None), icoh_vec, return_alignment=True)
 
         task_loss = F.kl_div(
             F.log_softmax(logits, dim=-1), soft_label, reduction='batchmean'
         )
 
-        if self.align_type == 'cosine':
-            align_loss = cosine_alignment_loss(z_token, z_graph)
-        elif self.align_type == 'contrastive':
-            align_loss = contrastive_alignment_loss(z_token, z_graph)
+        if z_token is None:
+            align_loss = torch.tensor(
+                0.0,
+                device=task_loss.device,
+                dtype=task_loss.dtype,
+            )
         else:
-            align_loss = torch.tensor(0.0, device=logits.device)
+            align_loss = cosine_alignment_loss(z_token, z_graph)
 
         loss = task_loss + self.lambda_align * align_loss
         return loss, task_loss, align_loss, logits, soft_label
@@ -123,10 +133,12 @@ class PLGraphConditionedClassifier(pl.LightningModule):
         self.log('train/loss', loss, prog_bar=True)
         self.log('train/task_loss', task_loss)
         self.log('train/align_loss', align_loss)
+        if self.should_update_ema:
+            self.ema.update()
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss, task_loss, align_loss, logits, soft_label = self._shared_step(batch)
+        loss, task_loss, align_loss, logits, soft_label = self._shared_step(batch, use_ema=True)
         preds = logits.argmax(dim=-1)
         hard  = soft_label.argmax(dim=-1)
         self.val_metrics.update(preds, hard)
@@ -138,7 +150,7 @@ class PLGraphConditionedClassifier(pl.LightningModule):
         self.val_metrics.reset()
 
     def test_step(self, batch, batch_idx):
-        loss, task_loss, align_loss, logits, soft_label = self._shared_step(batch)
+        loss, task_loss, align_loss, logits, soft_label = self._shared_step(batch, use_ema=True)
         preds = logits.argmax(dim=-1)
         hard  = soft_label.argmax(dim=-1)
         self.test_metrics.update(preds, hard)
@@ -148,50 +160,24 @@ class PLGraphConditionedClassifier(pl.LightningModule):
         self.log_dict(self.test_metrics.compute(), prog_bar=True)
         self.test_metrics.reset()
 
-    def unfreeze_backbone(self):
-        for p in self.model.classifier.extractor.parameters():
-            p.requires_grad = True
-        for p in self.model.classifier.reducer.parameters():
-            p.requires_grad = True
-        for p in self.model.classifier.decoder.parameters():
-            p.requires_grad = True
-        print("Backbone (extractor+reducer+decoder) unfrozen for Phase 2")
+
 
     def configure_optimizers(self):
-        # Differential learning rates:
-        # pretrained backbone (extractor/reducer/decoder) -> small LR
-        # new graph modules (GraphEncoder, FiLM) + classifier head -> larger LR
-        backbone_params = list(self.model.classifier.extractor.parameters()) + \
-                          list(self.model.classifier.reducer.parameters()) + \
-                          list(self.model.classifier.decoder.parameters())
-        backbone_param_ids = {id(p) for p in backbone_params}
-
-        new_params = [p for p in self.parameters()
-                     if p.requires_grad and id(p) not in backbone_param_ids]
-        backbone_params_trainable = [p for p in backbone_params if p.requires_grad]
-
-        base_lr = self.hparams['opt_kwargs'].get('lr', 1e-4)
+        # Single AdamW on all parameters — matches original EEGDM exactly
+        base_lr      = self.hparams['opt_kwargs'].get('lr', 1e-4)
         weight_decay = self.hparams['opt_kwargs'].get('weight_decay', 0.05)
-        betas = self.hparams['opt_kwargs'].get('betas', (0.9, 0.98))
-
-        param_groups = [
-            {'params': new_params, 'lr': base_lr},
-        ]
-        if backbone_params_trainable:
-            param_groups.append(
-                {'params': backbone_params_trainable, 'lr': base_lr * 0.1}
-            )
-
-        opt = torch.optim.AdamW(param_groups, weight_decay=weight_decay, betas=betas)
-
+        betas        = self.hparams['opt_kwargs'].get('betas', (0.9, 0.98))
+        opt = torch.optim.AdamW(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=base_lr, weight_decay=weight_decay, betas=betas
+        )
         sch = torch.optim.lr_scheduler.OneCycleLR(
             opt,
-            max_lr=[base_lr] + ([base_lr * 0.1] if backbone_params_trainable else []),
+            max_lr=self.hparams['sch_kwargs']['max_lr'],
             total_steps=self.hparams['sch_kwargs']['total_steps'],
             pct_start=self.hparams['sch_kwargs'].get('pct_start', 0.1),
         )
         return [opt], [{'scheduler': sch, 'interval': 'step'}]
-
 
 CLASSIFIER_MODEL_KWARGS = dict(
     start=0, end=None, diffusion_t=1,
@@ -204,7 +190,7 @@ CLASSIFIER_MODEL_KWARGS = dict(
     ch_order=["Fp1","F3","C3","P3","F7","T3","T5","O1",
               "Fz","Cz","Pz","Fp2","F4","C4","P4","F8","T4","T6","O2"],
     clst_dim="TP", clst_pos_embed_dim="", n_clst=16,
-    stack_struct="scf", num_heads=8, ff=4, dropout=0.1,
+    stack_struct="scf", num_heads=8, ff=4, dropout=0,
     have_crossnorm=False, across_pool_stack_struct="",
     n_ap_clst=0, ap_clst_dim="T",
     classifier_use_ap_clst=False, classifier_have_pos_embed=True,
@@ -219,14 +205,12 @@ def main(args):
     pl.seed_everything(42)
     torch.set_float32_matmul_precision('medium')
 
-    train_ds = ConnectivityHMSDataset(args.data_root, args.train_csv, args.icoh_cache, window_sec=10)
-    val_ds   = ConnectivityHMSDataset(args.data_root, args.val_csv,   args.icoh_cache, window_sec=10)
-    test_ds  = ConnectivityHMSDataset(args.data_root, args.test_csv,  args.icoh_cache, window_sec=10)
+    train_ds = ConnectivityHMSDatasetCached(args.data_root, args.train_csv, args.signal_cache, window_sec=10)
+    val_ds   = ConnectivityHMSDatasetCached(args.data_root, args.val_csv, args.signal_cache, window_sec=10)
+    test_ds  = ConnectivityHMSDatasetCached(args.data_root, args.test_csv, args.signal_cache, window_sec=10)
     print(f"Train:{len(train_ds)}  Val:{len(val_ds)}  Test:{len(test_ds)}")
 
     steps_per_epoch = math.ceil(len(train_ds) / args.batch_size)
-    total_steps_p1  = steps_per_epoch * args.epochs_p1
-    total_steps_p2  = steps_per_epoch * args.epochs_p2
 
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True,
                               num_workers=4, pin_memory=True, persistent_workers=True)
@@ -236,12 +220,11 @@ def main(args):
 
     model = PLGraphConditionedClassifier(
         classifier_model_kwargs = CLASSIFIER_MODEL_KWARGS,
-        opt_kwargs   = dict(lr=3e-5, weight_decay=0.1, betas=[0.9, 0.98]),
-        sch_kwargs   = dict(max_lr=1e-4, total_steps=total_steps_p1, pct_start=0.1),
+        opt_kwargs   = dict(lr=1e-4, weight_decay=0.05, betas=[0.9, 0.98]),
+        sch_kwargs   = dict(max_lr=5e-4, total_steps=steps_per_epoch*args.epochs, pct_start=0.1),
         n_class      = 6,
         lambda_align = args.lambda_align,
-        align_type   = args.align_type,
-        freeze_backbone = True,
+        use_graph    = args.use_graph,
         backbone_ckpt = args.backbone_ckpt,
     )
 
@@ -249,38 +232,39 @@ def main(args):
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs('logs', exist_ok=True)
 
-    t1 = pl.Trainer(
-        max_epochs=args.epochs_p1, accelerator='gpu', devices=1,
+    total_steps = steps_per_epoch * args.epochs
+    model.hparams['sch_kwargs']['total_steps'] = total_steps
+
+    wandb_logger = WandbLogger(
+        project=args.wandb_project,
+        group=args.wandb_group,
+        name=args.name,
+        save_dir="logs/wandb",
+    )
+
+    trainer = pl.Trainer(
+        logger=wandb_logger,
+        max_epochs=args.epochs,
+        accelerator='gpu', devices=args.devices,
+        strategy='ddp' if args.devices > 1 else 'auto',
         precision='32-true', log_every_n_steps=10, num_sanity_val_steps=0,
-        gradient_clip_val=1.0,
+        gradient_clip_val=3,
         default_root_dir=f'logs/{args.name}',
         callbacks=[
             pl.callbacks.ModelCheckpoint(monitor='val/kappa', mode='max', save_top_k=1,
-                                         dirpath=ckpt_dir, filename='phase1_best', save_last=True),
-            pl.callbacks.EarlyStopping(monitor='val/kappa', mode='max', patience=5),
+                                         dirpath=ckpt_dir, filename='best', save_last=True),
+            pl.callbacks.EarlyStopping(monitor='val/kappa', mode='max', patience=10),
         ]
     )
-    t1.fit(model, train_loader, val_loader)
+    trainer.fit(model, train_loader, val_loader)
 
-    model.unfreeze_backbone()
-    model.hparams['sch_kwargs']['total_steps'] = total_steps_p2
-    t2 = pl.Trainer(
-        max_epochs=args.epochs_p2, accelerator='gpu', devices=1,
-        precision='32-true', log_every_n_steps=10, num_sanity_val_steps=0,
-        gradient_clip_val=1.0,
-        default_root_dir=f'logs/{args.name}',
-        callbacks=[
-            pl.callbacks.ModelCheckpoint(monitor='val/kappa', mode='max', save_top_k=1,
-                                         dirpath=ckpt_dir, filename='phase2_best', save_last=True),
-            pl.callbacks.EarlyStopping(monitor='val/kappa', mode='max', patience=8),
-        ]
-    )
-    t2.fit(model, train_loader, val_loader)
-
-    best_ckpt = t2.checkpoint_callbacks[0].best_model_path
+    best_ckpt = trainer.checkpoint_callbacks[0].best_model_path
     best = PLGraphConditionedClassifier.load_from_checkpoint(best_ckpt, weights_only=False)
-    results = t2.test(best, test_loader)
+    results = trainer.test(best, test_loader)
     print(results)
+
+    import wandb
+    wandb.finish()
 
 
 if __name__ == '__main__':
@@ -291,12 +275,18 @@ if __name__ == '__main__':
     parser.add_argument('--val_csv',   type=str, default='finetune_val')
     parser.add_argument('--test_csv',  type=str, default='finetune_test')
     parser.add_argument('--icoh_cache', type=str, default='data/icoh_cache')
+    parser.add_argument('--signal_cache', type=str,
+                        default='data/signal_cache')
     parser.add_argument('--backbone_ckpt', type=str, default='checkpoints/backbone.ckpt')
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--epochs_p1', type=int, default=10)
-    parser.add_argument('--epochs_p2', type=int, default=20)
+    parser.add_argument('--epochs', type=int, default=30)
+
     parser.add_argument('--lambda_align', type=float, default=0.1)
-    parser.add_argument('--align_type', type=str, default='cosine',
-                        choices=['cosine', 'contrastive', 'none'])
+    parser.add_argument('--use_graph', type=int, default=1)
+
+    parser.add_argument('--devices', type=int, default=1)
+    parser.add_argument('--wandb_project', type=str, default='CGEEGDM')
+    parser.add_argument('--wandb_group', type=str, default='GraphCond')
     args = parser.parse_args()
+    args.use_graph = bool(args.use_graph)
     main(args)
