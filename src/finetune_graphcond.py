@@ -246,7 +246,7 @@ def main(args):
         logger=wandb_logger,
         max_epochs=args.epochs,
         accelerator='gpu', devices=args.devices,
-        strategy='ddp' if args.devices > 1 else 'auto',
+        strategy='ddp_find_unused_parameters_true' if args.devices > 1 else 'auto',
         precision='32-true', log_every_n_steps=10, num_sanity_val_steps=0,
         gradient_clip_val=3,
         default_root_dir=f'logs/{args.name}',
