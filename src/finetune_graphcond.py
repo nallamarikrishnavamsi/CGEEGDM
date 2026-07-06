@@ -253,7 +253,7 @@ def main(args):
         callbacks=[
             pl.callbacks.ModelCheckpoint(monitor='val/kappa', mode='max', save_top_k=1,
                                          dirpath=ckpt_dir, filename='best', save_last=True),
-            pl.callbacks.EarlyStopping(monitor='val/kappa', mode='max', patience=10),
+            pl.callbacks.EarlyStopping(monitor='val/kappa', mode='max', patience=args.patience),
         ]
     )
     trainer.fit(model, train_loader, val_loader)
@@ -287,6 +287,7 @@ if __name__ == '__main__':
     parser.add_argument('--devices', type=int, default=1)
     parser.add_argument('--wandb_project', type=str, default='CGEEGDM')
     parser.add_argument('--wandb_group', type=str, default='GraphCond')
+    parser.add_argument('--patience', type=int, default=10)
     args = parser.parse_args()
     args.use_graph = bool(args.use_graph)
     main(args)
