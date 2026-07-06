@@ -1,0 +1,4 @@
+model,use_graph,lambda_align,test_kappa,test_bacc,test_wf1,test_loss,val_kappa_final,best_epoch,silhouette,davies_bouldin
+baseline,0,0.0,0.3006,0.4123,0.4304,1.1537,0.364,15,-0.1773,7.7460
+graphcond,1,0.1,0.2957,0.3812,0.4254,1.7232,0.373,15,-0.1219,4.6296
+noalign,1,0.0,,,,,,,,
