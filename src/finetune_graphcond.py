@@ -66,6 +66,23 @@ def load_original_backbone(ckpt_path, device='cpu'):
     return backbone
 
 
+class PrintEpochCallback(pl.Callback):
+    """Prints one clean line per epoch — readable in SLURM log files."""
+    def on_train_epoch_end(self, trainer, pl_module):
+        metrics = trainer.callback_metrics
+        epoch = trainer.current_epoch
+        train_loss = metrics.get('train/loss', float('nan'))
+        print(f"[Epoch {epoch+1}/{trainer.max_epochs}] train/loss={train_loss:.4f}", flush=True)
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        metrics = trainer.callback_metrics
+        epoch = trainer.current_epoch
+        val_loss  = metrics.get('val/loss', float('nan'))
+        val_kappa = metrics.get('val/kappa', float('nan'))
+        val_bacc  = metrics.get('val/bacc', float('nan'))
+        print(f"[Epoch {epoch+1}] val/loss={val_loss:.4f} val/kappa={val_kappa:.4f} val/bacc={val_bacc:.4f}", flush=True)
+
+
 class PLGraphConditionedClassifier(pl.LightningModule):
     def __init__(self, classifier_model_kwargs, opt_kwargs, sch_kwargs,
                  n_class=6, lambda_align=0.1,
@@ -155,6 +172,8 @@ class PLGraphConditionedClassifier(pl.LightningModule):
         hard  = soft_label.argmax(dim=-1)
         self.test_metrics.update(preds, hard)
         self.log('test/loss', loss)
+        self.log('test/task_loss', task_loss)
+        self.log('test/align_loss', align_loss)
 
     def on_test_epoch_end(self):
         self.log_dict(self.test_metrics.compute(), prog_bar=True)
@@ -228,7 +247,9 @@ def main(args):
         backbone_ckpt = args.backbone_ckpt,
     )
 
-    ckpt_dir = f"checkpoint/{args.name}"
+    import os as _os
+    _job_id = _os.environ.get("SLURM_JOB_ID", "local")
+    ckpt_dir = f"checkpoint/{args.name}_{_job_id}"
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs('logs', exist_ok=True)
 
@@ -249,11 +270,13 @@ def main(args):
         strategy='ddp_find_unused_parameters_true' if args.devices > 1 else 'auto',
         precision='32-true', log_every_n_steps=10, num_sanity_val_steps=0,
         gradient_clip_val=3,
+        enable_progress_bar=False,
         default_root_dir=f'logs/{args.name}',
         callbacks=[
             pl.callbacks.ModelCheckpoint(monitor='val/kappa', mode='max', save_top_k=1,
                                          dirpath=ckpt_dir, filename='best', save_last=True),
             pl.callbacks.EarlyStopping(monitor='val/kappa', mode='max', patience=args.patience),
+            PrintEpochCallback(),
         ]
     )
     trainer.fit(model, train_loader, val_loader)
