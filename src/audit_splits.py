@@ -8,11 +8,9 @@ import pandas as pd
 
 def audit(data_root):
     splits = {
-        'pretrain_train' : 'pretrain_train.csv',
-        'pretrain_val'   : 'pretrain_val.csv',
-        'finetune_train' : 'finetune_train.csv',
-        'finetune_val'   : 'finetune_val.csv',
-        'finetune_test'  : 'finetune_test.csv',
+        'full106k_train' : 'full106k_train.csv',
+        'full106k_val'   : 'full106k_val.csv',
+        'full106k_test'  : 'full106k_test.csv',
     }
 
     dfs = {}
@@ -63,17 +61,17 @@ def audit(data_root):
     print("="*60)
 
     # Critical check: pretrain vs finetune_test
-    if 'pretrain_train' in dfs and 'finetune_test' in dfs:
-        pt_pat = set(dfs['pretrain_train']['patient_id'].astype(int)) \
-                 if 'patient_id' in dfs['pretrain_train'].columns else set()
-        ft_pat = set(dfs['finetune_test']['patient_id'].astype(int)) \
-                 if 'patient_id' in dfs['finetune_test'].columns else set()
-        overlap = pt_pat & ft_pat
+    if 'full106k_train' in dfs and 'full106k_test' in dfs:
+        tr_pat = set(dfs['full106k_train']['patient_id'].astype(int)) \
+                 if 'patient_id' in dfs['full106k_train'].columns else set()
+        te_pat = set(dfs['full106k_test']['patient_id'].astype(int)) \
+                 if 'patient_id' in dfs['full106k_test'].columns else set()
+        overlap = tr_pat & te_pat
         if len(overlap) == 0:
-            print("✅ CRITICAL: No patient overlap between pretrain_train and finetune_test")
+            print("✅ CRITICAL: No patient overlap between full106k_train and full106k_test")
         else:
-            print(f"❌ CRITICAL: {len(overlap)} patients appear in both pretrain_train and finetune_test!")
-            print(f"   This invalidates transfer learning claims.")
+            print(f"❌ CRITICAL: {len(overlap)} patients appear in both full106k_train and full106k_test!")
+            print(f"   This invalidates the evaluation.")
 
 
 def main():

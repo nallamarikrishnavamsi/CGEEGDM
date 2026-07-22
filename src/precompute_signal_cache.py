@@ -2,16 +2,13 @@
 Offline preprocessing for HMS pretraining — matches original EEGDM pattern
 where data is converted to fast-loading cache files BEFORE training starts.
 
-This replaces repeated parquet reads (19x per EEG per epoch) with a single
-read per EEG, caching all 19 channels + iCOH together.
+Keys by (eeg_id, eeg_label_offset_seconds) since a single eeg_id can have
+multiple distinct labeled 50s windows, each needing its own 10s crop.
 
-Run once before pretraining:
-    python src/precompute_signal_cache.py
-
-Output: data/signal_cache/{eeg_id}.pt
+Output: data/signal_cache/{eeg_id}_{offset}.pt
     {
-      'signal': FloatTensor [19, 2000],   # all channels, centre-cropped, normalised
-      'icoh_vec': FloatTensor [171],      # from existing icoh_cache
+      'signal': FloatTensor [19, 2000],
+      'icoh_vec': FloatTensor [171],
     }
 """
 import os, sys, time
@@ -33,29 +30,40 @@ WINDOW_SEC = 10
 FS = 200
 WINDOW = WINDOW_SEC * FS  # 2000
 
+_cache = {'eeg_id': None, 'sig': None}
 
-def process_one(eeg_id):
-    cache_path = os.path.join(SIGNAL_CACHE_DIR, f"{eeg_id}.pt")
+def process_one(args):
+    eeg_id, offset = args
+    key = f"{eeg_id}_{int(offset)}"
+    cache_path = os.path.join(SIGNAL_CACHE_DIR, f"{key}.pt")
     if os.path.exists(cache_path):
         return 'skipped'
     try:
-        eeg_raw = pd.read_parquet(os.path.join(EEG_DIR, f"{eeg_id}.parquet"))
-        sig = np.zeros((len(HMS_CHANNELS), len(eeg_raw)), dtype=np.float32)
-        for i, ch in enumerate(HMS_CHANNELS):
-            if ch in eeg_raw.columns:
-                sig[i] = eeg_raw[ch].values.astype(np.float32)
-        sig = np.nan_to_num(sig, nan=0.0, posinf=0.0, neginf=0.0)
+        if _cache['eeg_id'] != eeg_id:
+            eeg_raw = pd.read_parquet(os.path.join(EEG_DIR, f"{eeg_id}.parquet"))
+            sig = np.zeros((len(HMS_CHANNELS), len(eeg_raw)), dtype=np.float32)
+            for i, ch in enumerate(HMS_CHANNELS):
+                if ch in eeg_raw.columns:
+                    sig[i] = eeg_raw[ch].values.astype(np.float32)
+            sig = np.nan_to_num(sig, nan=0.0, posinf=0.0, neginf=0.0)
+            _cache['eeg_id'] = eeg_id
+            _cache['sig'] = sig
+        else:
+            sig = _cache['sig']
 
         T = sig.shape[1]
-        mid = T // 2
-        half = WINDOW // 2
-        seg = sig[:, max(0, mid-half):min(T, mid+half)]
+        start_sample = int((offset + 20) * FS)
+        end_sample   = start_sample + WINDOW
+        start_sample = max(0, min(start_sample, T - WINDOW))
+        end_sample   = start_sample + WINDOW
+
+        seg = sig[:, start_sample:end_sample]
         if seg.shape[1] < WINDOW:
             pad = WINDOW - seg.shape[1]
             seg = np.concatenate([seg, np.zeros((len(HMS_CHANNELS), pad), dtype=np.float32)], axis=1)
         seg = seg[:, :WINDOW] / 100.0
 
-        icoh_path = os.path.join(ICOH_CACHE_DIR, f"{eeg_id}.pt")
+        icoh_path = os.path.join(ICOH_CACHE_DIR, f"{key}.pt")
         if os.path.exists(icoh_path):
             icoh_vec = torch.load(icoh_path, weights_only=True)['icoh_vector']
         else:
@@ -67,41 +75,33 @@ def process_one(eeg_id):
         }, cache_path)
         return 'done'
     except Exception as e:
-        return f'failed:{eeg_id}:{e}'
+        return f'failed:{eeg_id}_{offset}:{e}'
 
 
 if __name__ == '__main__':
     os.makedirs(SIGNAL_CACHE_DIR, exist_ok=True)
-
     csv_files = [
         '/home/dsamantaai/krishna/data/full106k_train.csv',
         '/home/dsamantaai/krishna/data/full106k_val.csv',
         '/home/dsamantaai/krishna/data/full106k_test.csv',
     ]
-    all_ids = set()
+    all_pairs = set()
     for csv in csv_files:
         if os.path.exists(csv):
             df = pd.read_csv(csv)
-            all_ids.update(df['eeg_id'].astype(int).tolist())
-        else:
-            print(f"WARNING: {csv} not found")
-    all_ids = sorted(all_ids)
-    print(f"Total EEG IDs to process: {len(all_ids)}")
-
-    cached = set(int(f.replace('.pt', '')) for f in os.listdir(SIGNAL_CACHE_DIR) if f.endswith('.pt'))
-    missing = [i for i in all_ids if i not in cached]
-    print(f"Already cached: {len(cached)}  Missing: {len(missing)}")
+            for eid, off in zip(df['eeg_id'].astype(int), df['eeg_label_offset_seconds']):
+                all_pairs.add((eid, off))
+    all_pairs = sorted(all_pairs, key=lambda x: (x[0], x[1]))
+    print(f"Total (eeg_id, offset) pairs: {len(all_pairs)}")
 
     n_workers = min(cpu_count(), 16)
     print(f"Using {n_workers} workers")
     start = time.time()
     with Pool(n_workers) as pool:
-        results = list(tqdm(pool.imap(process_one, missing), total=len(missing)))
+        results = list(tqdm(pool.imap(process_one, all_pairs, chunksize=8), total=len(all_pairs)))
 
     done    = results.count('done')
     skipped = results.count('skipped')
-    failed  = [r for r in results if r.startswith('failed')]
-    print(f"\nDone:{done}  Skipped:{skipped}  Failed:{len(failed)}")
-    if failed:
-        print("First 5 failures:", failed[:5])
+    failed  = sum(1 for r in results if r.startswith('failed'))
+    print(f"\nDone:{done}  Skipped:{skipped}  Failed:{failed}")
     print(f"Total time: {(time.time()-start)/60:.1f} min")

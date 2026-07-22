@@ -125,13 +125,18 @@ def main(args):
     sil_base, dbi_base = compute_cluster_metrics(emb_base, lab_base)
     sil_gc, dbi_gc     = compute_cluster_metrics(emb_gc, lab_gc)
 
+    print(f"\nSamples used for clustering metrics:")
+    print(f"  Baseline : {len(emb_base)} samples")
+    print(f"  GraphCond: {len(emb_gc)} samples")
     print(f"\n{'Model':<15}{'Silhouette':>12}{'Davies-Bouldin':>18}")
     print(f"{'Baseline':<15}{sil_base:>12.4f}{dbi_base:>18.4f}")
     print(f"{'GraphCond':<15}{sil_gc:>12.4f}{dbi_gc:>18.4f}")
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    plot_umap(coords_base, lab_base, f"Baseline (Sil={sil_base:.3f}, DBI={dbi_base:.3f})", axes[0])
-    plot_umap(coords_gc, lab_gc, f"GraphCond (Sil={sil_gc:.3f}, DBI={dbi_gc:.3f})", axes[1])
+    plot_umap(coords_base, lab_base,
+              f"Baseline (n={len(emb_base)}, Sil={sil_base:.3f}, DBI={dbi_base:.3f})", axes[0])
+    plot_umap(coords_gc, lab_gc,
+              f"GraphCond (n={len(emb_gc)}, Sil={sil_gc:.3f}, DBI={dbi_gc:.3f})", axes[1])
     axes[1].legend(loc='center left', bbox_to_anchor=(1.02, 0.5), fontsize=9)
     plt.tight_layout()
 
