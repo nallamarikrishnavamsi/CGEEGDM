@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --partition=dgx_all
+#SBATCH --exclude=dgx3
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128G

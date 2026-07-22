@@ -38,6 +38,7 @@ srun python src/finetune_graphcond.py \
     --lambda_align 0.0 \
     --use_graph 0 \
     --devices 2 \
+    --patience 5 \
     --wandb_project CGEEGDM \
     --wandb_group Baseline
 

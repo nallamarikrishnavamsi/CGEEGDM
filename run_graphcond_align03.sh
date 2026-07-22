@@ -32,6 +32,7 @@ srun python src/finetune_graphcond.py \
     --lambda_align 0.3 \
     --use_graph 1 \
     --devices 2 \
+    --patience 5 \
     --wandb_project CGEEGDM \
     --wandb_group GraphCond_Align03
 echo "Job finished: $(date)"

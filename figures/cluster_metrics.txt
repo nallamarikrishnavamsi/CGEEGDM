@@ -1,2 +1,2 @@
-Baseline: silhouette=-0.1773, davies_bouldin=7.7460
-GraphCond: silhouette=-0.1219, davies_bouldin=4.6296
+Baseline: silhouette=-0.1363, davies_bouldin=7.5788
+GraphCond: silhouette=-0.1310, davies_bouldin=7.5418
