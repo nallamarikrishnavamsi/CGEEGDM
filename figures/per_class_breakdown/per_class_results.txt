@@ -1,0 +1,10 @@
+Class              baseline      graphcond    gc_combined
+Seizure              0.6024         0.5963         0.5843
+LPD                  0.5897         0.4879         0.6040
+GPD                  0.4522         0.4697         0.3709
+LRDA                 0.3086         0.3678         0.4092
+GRDA                 0.4616         0.4964         0.4770
+Other                0.4536         0.4166         0.4531
+
+Overall kappa         0.3848         0.3690         0.3915
+Macro F1             0.4780         0.4725         0.4831
