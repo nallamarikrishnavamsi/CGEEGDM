@@ -36,12 +36,13 @@ def process_one(args):
                     sig[i] = eeg_raw[ch].values.astype(np.float32)
             sig = np.nan_to_num(sig, nan=0.0, posinf=0.0, neginf=0.0)
 
-            from scipy.signal import butter, filtfilt, iirnotch
-            nyq = FS / 2
-            b, a = butter(4, [0.5/nyq, 40.0/nyq], btype='band')
-            sig  = filtfilt(b, a, sig, axis=-1)
-            b, a = iirnotch(50.0/nyq, 30)
-            sig  = filtfilt(b, a, sig, axis=-1)
+            import mne
+            mne.set_log_level("CRITICAL")
+            info = mne.create_info(ch_names=HMS_CHANNELS, sfreq=FS, ch_types="eeg")
+            raw = mne.io.RawArray(sig, info, verbose="CRITICAL")
+            raw.filter(l_freq=0.1, h_freq=75)   # matches EEGDM_original/conf/preprocessing/pretrain.yaml
+            raw.notch_filter(50)                # method='fir', defaults unchanged, matches original EEGDM
+            sig = raw.get_data().astype(np.float32)
 
             _cache['eeg_id'] = eeg_id
             _cache['sig'] = sig
