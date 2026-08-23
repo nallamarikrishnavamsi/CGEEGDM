@@ -46,6 +46,20 @@ def process_one(args):
                 if ch in eeg_raw.columns:
                     sig[i] = eeg_raw[ch].values.astype(np.float32)
             sig = np.nan_to_num(sig, nan=0.0, posinf=0.0, neginf=0.0)
+
+            # Bandpass + notch filter — matches precompute_icoh.py exactly,
+            # using MNE with original EEGDM's exact config values
+            # (EEGDM_original/conf/preprocessing/pretrain.yaml: bandpass 0.1-75Hz,
+            # notch 50Hz, method='fir' default), so both the classification
+            # signal and the iCOH graph branch see identically filtered EEG.
+            import mne
+            mne.set_log_level("CRITICAL")
+            info = mne.create_info(ch_names=HMS_CHANNELS, sfreq=FS, ch_types="eeg")
+            raw = mne.io.RawArray(sig, info, verbose="CRITICAL")
+            raw.filter(l_freq=0.1, h_freq=75)
+            raw.notch_filter(50)
+            sig = raw.get_data().astype(np.float32)
+
             _cache['eeg_id'] = eeg_id
             _cache['sig'] = sig
         else:
