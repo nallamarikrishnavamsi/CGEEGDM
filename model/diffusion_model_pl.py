@@ -122,4 +122,8 @@ class PLDiffusionModel(pl.LightningModule):
     
     @torch.no_grad()
     def on_validation_epoch_end(self):
+        # NOTE: original reverse-diffusion sampling/KLD logic intentionally
+        # removed for HMS pretraining wall-clock budget. See
+        # GROUND_TRUTH_EXCEPTIONS.md, section 2. Does not affect checkpoint
+        # selection (monitors val/mse_loss).
         return
