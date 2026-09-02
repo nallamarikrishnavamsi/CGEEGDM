@@ -33,11 +33,15 @@ def compute_icoh(signal, fs=200):
 
             A[i, j] = A[j, i] = float(icoh)
 
-    # Normalize matrix to [0, 1] for stable conditioning input
-    max_val = A.max()
-    if max_val > 1e-8:
-        A = A / max_val
-
+    # No post-hoc normalization: icoh(f) = Im(Cxy)/sqrt(Pxx*Pyy) is already
+    # bounded in [-1, 1] by the coherence magnitude bound, so |icoh_f| in
+    # [0, 1] and its mean stay in [0, 1] automatically. A prior per-sample
+    # max-normalization here rescaled each sample independently, which
+    # discarded real cross-sample differences in connectivity strength
+    # (exactly what the alignment loss needs) and made edge weights
+    # incomparable across samples. GraphEncoder already L2-normalizes
+    # the pooled graph embedding at its output (F.normalize) for FiLM
+    # input stability, so scale safety downstream is still covered.
     return A
 
 
