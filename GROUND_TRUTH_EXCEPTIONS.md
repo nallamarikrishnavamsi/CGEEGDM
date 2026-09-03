@@ -36,3 +36,8 @@ not listed here is unintentional and must be reverted or reviewed.
   which finetune_graphcond.py does not use — it imports model/classifier.py
   (Classifier) instead. Kept present for original-EEGDM baseline
   reproducibility, not because CGEEGDM's active pipeline needs it.
+
+## dataloader/TUEVDataset.py
+- Kept solely as a reference copy for verify_ground_truth.sh (proves the
+  original TUEV loader is unmodified). NOT used by any HMS/CGEEGDM training
+  script — ConnectivityTUEVDataset.py (HMS-based) is what's actually used.

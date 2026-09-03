@@ -75,7 +75,11 @@ def main(args):
 
     import os as _os
     job_id = _os.environ.get("SLURM_JOB_ID", "local")
-    ckpt_dir = f"checkpoints/{args.name}_{job_id}"
+    print(f"SLURM_JOB_ID: {job_id}", flush=True)
+    # NOTE: intentionally NOT suffixed with job_id, so that a resumed run
+    # (new sbatch submission => new job_id) still writes to / reads from
+    # the same checkpoint directory as the run it is resuming.
+    ckpt_dir = f"checkpoints/{args.name}"
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs('logs', exist_ok=True)
 
@@ -94,7 +98,9 @@ def main(args):
             PrintEpochCallback(),
         ],
     )
-    trainer.fit(model, train_loader, val_loader)
+    if args.resume_ckpt:
+        print(f"Resuming from checkpoint: {args.resume_ckpt}", flush=True)
+    trainer.fit(model, train_loader, val_loader, ckpt_path=args.resume_ckpt)
     print(f"Best checkpoint: {trainer.checkpoint_callbacks[0].best_model_path}")
 
 
@@ -109,5 +115,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--devices', type=int, default=1)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--resume_ckpt', type=str, default=None,
+                         help='Path to a .ckpt to resume from (restores model, optimizer, epoch count). '
+                              'When set, --epochs is the CUMULATIVE total epoch count to train to, not an additional amount.')
     args = parser.parse_args()
     main(args)
