@@ -24,7 +24,7 @@ class GraphLatentModulation(nn.Module):
     - Dropout inside the MLPs regularizes the new graph branch so it
       cannot simply memorize per-sample connectivity patterns.
     """
-    def __init__(self, token_dim, graph_dim=256, hidden_dim=256,
+    def __init__(self, token_dim, graph_dim=128, hidden_dim=256,
                  dropout=0.2, residual_scale_init=0.05):
         super().__init__()
         self.token_dim = token_dim

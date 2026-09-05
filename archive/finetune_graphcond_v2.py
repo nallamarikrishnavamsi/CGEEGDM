@@ -125,7 +125,11 @@ class PLGraphConditionedClassifier(pl.LightningModule):
         )
         self.should_update_ema = True
 
-        # No freezing — train end-to-end like original EEGDM
+        # Backbone is frozen: LatentActivityExtractor (model/classifier.py) calls
+        # p.detach_() on all backbone params (requires_grad=False) and its forward()
+        # runs under @torch.no_grad(). Only GraphConditionedClassifier's new modules
+        # (GraphEncoder, GraphLatentModulation, AlignmentHead, classifier head) are
+        # trained. See GROUND_TRUTH_EXCEPTIONS.md.
 
         self.val_metrics = MetricCollection({
             'kappa': MulticlassCohenKappa(num_classes=n_class, validate_args=False),

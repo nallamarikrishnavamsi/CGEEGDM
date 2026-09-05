@@ -76,6 +76,10 @@ class GraphEncoder(nn.Module):
         super().__init__()
         self.num_nodes = num_nodes
         self.edge_dropout = edge_dropout
+        assert hidden_dim == out_dim, (
+            "GraphEncoder returns the pooled readout directly (no projection); "
+            f"hidden_dim ({hidden_dim}) must equal out_dim ({out_dim})."
+        )
 
         # Project EEG-derived per-channel features down to hidden_dim
         self.node_proj = nn.Linear(node_feat_dim, hidden_dim)
@@ -88,11 +92,6 @@ class GraphEncoder(nn.Module):
         ])
         self.dropout = nn.Dropout(dropout)
         self.readout = LearnedReadout(hidden_dim)
-        self.proj = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, out_dim),
-        )
         self._last_node_weights = None  # for interpretability/debugging
 
     def forward(self, adj, node_features=None):
@@ -122,8 +121,9 @@ class GraphEncoder(nn.Module):
         for layer in self.layers:
             x = x + self.dropout(layer(x, adj_norm))   # residual per layer
 
-        readout, node_weights = self.readout(x)          # [B, hidden_dim], [B, N]
+        readout, node_weights = self.readout(x)          # [B, hidden_dim]
         self._last_node_weights = node_weights.detach()   # store for inspection
-        graph_emb = self.proj(readout)
-        graph_emb = F.normalize(graph_emb, dim=-1)        # stabilize FiLM inputs
+        # No projection: graph embedding is the readout itself (128-d),
+        # matching token_dim directly. See GROUND_TRUTH_EXCEPTIONS.md.
+        graph_emb = F.normalize(readout, dim=-1)          # stabilize FiLM inputs
         return graph_emb

@@ -33,7 +33,7 @@ class GraphConditionedClassifier(nn.Module):
 
     Args:
         classifier   : original EEGDM Classifier instance
-        graph_dim    : output dim of GraphEncoder (default 256)
+        graph_dim    : output dim of GraphEncoder (default 128)
         token_dim    : last dim H of latent tokens (default 128 = d_model)
         num_nodes    : number of EEG channels (default 19)
         gcn_hidden   : hidden dim of GCN layers (default 128)
@@ -48,7 +48,7 @@ class GraphConditionedClassifier(nn.Module):
     def __init__(
         self,
         classifier,
-        graph_dim  = 256,
+        graph_dim  = 128,
         token_dim  = 128,
         num_nodes  = 19,
         gcn_hidden = 128,

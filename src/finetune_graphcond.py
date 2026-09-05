@@ -98,7 +98,7 @@ class PLGraphConditionedClassifier(pl.LightningModule):
                  align_ramp_epochs=5,
                  warmup_epochs=5,
                  gcn_layers=3,
-                 graph_dim=256,
+                 graph_dim=128,
                  gcn_dropout=0.1,
                  lambda_graph_l2=0.0,
                  augment_icoh=False,
@@ -136,7 +136,11 @@ class PLGraphConditionedClassifier(pl.LightningModule):
         )
         self.should_update_ema = True
 
-        # No freezing — train end-to-end like original EEGDM
+        # Backbone is frozen: LatentActivityExtractor (model/classifier.py) calls
+        # p.detach_() on all backbone params (requires_grad=False) and its forward()
+        # runs under @torch.no_grad(). Only GraphConditionedClassifier's new modules
+        # (GraphEncoder, GraphLatentModulation, AlignmentHead, classifier head) are
+        # trained. See GROUND_TRUTH_EXCEPTIONS.md.
 
         self.val_metrics = MetricCollection({
             'kappa': MulticlassCohenKappa(num_classes=n_class, validate_args=False),
@@ -403,7 +407,7 @@ if __name__ == '__main__':
     parser.add_argument('--patience', type=int, default=10)
     parser.add_argument('--gcn_layers', type=int, default=3)
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--graph_dim', type=int, default=256)
+    parser.add_argument('--graph_dim', type=int, default=128)
     parser.add_argument('--gcn_dropout', type=float, default=0.1)
     parser.add_argument('--augment_icoh', type=int, default=0)
     parser.add_argument('--icoh_noise_std', type=float, default=0.05)
