@@ -81,8 +81,9 @@ class GraphEncoder(nn.Module):
             f"hidden_dim ({hidden_dim}) must equal out_dim ({out_dim})."
         )
 
-        # Project EEG-derived per-channel features down to hidden_dim
-        self.node_proj = nn.Linear(node_feat_dim, hidden_dim)
+        # node_features are already hidden_dim-dimensional (EEG-derived
+        # per-channel backbone tokens), so no projection is applied — passed
+        # directly to the GCN layers below.
 
         # Fallback learnable embedding (used if node_features not provided)
         self.node_embedding = nn.Parameter(torch.randn(num_nodes, hidden_dim))
@@ -114,7 +115,7 @@ class GraphEncoder(nn.Module):
         adj_norm = symmetric_normalize(adj)
 
         if node_features is not None:
-            x = self.node_proj(node_features)          # [B, N, hidden_dim]
+            x = node_features                           # [B, N, hidden_dim]
         else:
             x = self.node_embedding.unsqueeze(0).expand(B, -1, -1)
 
