@@ -72,10 +72,9 @@ class GraphEncoder(nn.Module):
     can emphasize informative electrodes.
     """
     def __init__(self, num_nodes=19, node_feat_dim=128, hidden_dim=128,
-                 out_dim=256, layers=3, dropout=0.1, edge_dropout=0.1):
+                 out_dim=256, layers=3, dropout=0.1):
         super().__init__()
         self.num_nodes = num_nodes
-        self.edge_dropout = edge_dropout
         assert hidden_dim == out_dim, (
             "GraphEncoder returns the pooled readout directly (no projection); "
             f"hidden_dim ({hidden_dim}) must equal out_dim ({out_dim})."
@@ -104,22 +103,10 @@ class GraphEncoder(nn.Module):
         """
         B = adj.size(0)
 
-        # Edge dropout: randomly zero out off-diagonal edges during training
-        # to regularize the graph branch (self-loops on the diagonal are
-        # always preserved since they carry the node's own identity).
-        # Symmetric: (i,j) and (j,i) share the same drop decision, since
-        # the EEG connectivity graph is undirected — only the upper
-        # triangle is sampled and mirrored onto the lower triangle.
-        if self.training and self.edge_dropout > 0:
-            N = adj.size(-1)
-            eye = torch.eye(N, device=adj.device, dtype=torch.bool).unsqueeze(0)
-            rand = torch.rand_like(adj)
-            triu = torch.triu(torch.ones(N, N, device=adj.device, dtype=torch.bool),
-                               diagonal=1).unsqueeze(0)
-            rand_sym = torch.where(triu, rand, rand.transpose(-1, -2))
-            drop_mask = (rand_sym < self.edge_dropout) & (~eye)
-            adj = adj.masked_fill(drop_mask, 0.0)
-
+        # No internal edge dropout here: vector_to_adjacency() already
+        # applies symmetric edge dropout (+ noise) during connectivity
+        # augmentation, gated by augment_icoh. Doing it again here would
+        # double-perturb the same adjacency matrix.
         adj_norm = symmetric_normalize(adj)
 
         if node_features is not None:
