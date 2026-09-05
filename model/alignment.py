@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 class AlignmentHead(nn.Module):
     """Projects pooled latent tokens and graph embedding into shared space."""
-    def __init__(self, token_dim=128, graph_dim=256, proj_dim=128):
+    def __init__(self, token_dim=128, graph_dim=128, proj_dim=128):
         super().__init__()
         self.token_proj = nn.Sequential(
             nn.Linear(token_dim, proj_dim),
