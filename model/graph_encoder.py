@@ -107,9 +107,17 @@ class GraphEncoder(nn.Module):
         # Edge dropout: randomly zero out off-diagonal edges during training
         # to regularize the graph branch (self-loops on the diagonal are
         # always preserved since they carry the node's own identity).
+        # Symmetric: (i,j) and (j,i) share the same drop decision, since
+        # the EEG connectivity graph is undirected — only the upper
+        # triangle is sampled and mirrored onto the lower triangle.
         if self.training and self.edge_dropout > 0:
-            eye = torch.eye(adj.size(-1), device=adj.device, dtype=torch.bool).unsqueeze(0)
-            drop_mask = (torch.rand_like(adj) < self.edge_dropout) & (~eye)
+            N = adj.size(-1)
+            eye = torch.eye(N, device=adj.device, dtype=torch.bool).unsqueeze(0)
+            rand = torch.rand_like(adj)
+            triu = torch.triu(torch.ones(N, N, device=adj.device, dtype=torch.bool),
+                               diagonal=1).unsqueeze(0)
+            rand_sym = torch.where(triu, rand, rand.transpose(-1, -2))
+            drop_mask = (rand_sym < self.edge_dropout) & (~eye)
             adj = adj.masked_fill(drop_mask, 0.0)
 
         adj_norm = symmetric_normalize(adj)
