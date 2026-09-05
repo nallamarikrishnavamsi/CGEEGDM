@@ -4,9 +4,9 @@ import torch.nn as nn
 
 class GraphLatentModulation(nn.Module):
     """
-    Gated, damped, joint-conditioned FiLM.
+    Gated, joint-conditioned FiLM.
 
-    T' = T + residual_scale * gate(T,G) * ( alpha(T,G)*T + beta(T,G) - T )
+    T' = T + warmup_alpha * gate(T,G) * ( alpha(T,G)*T + beta(T,G) - T )
 
     - alpha/beta depend on concat(token, graph) -> joint conditioning.
     - gate(T,G) is a learned sigmoid in [0,1] that lets the model decide,
@@ -16,16 +16,13 @@ class GraphLatentModulation(nn.Module):
       correction.
     - Identity at init: alpha=1, beta=0 (zero-init final layer), gate
       starts near 0.5 (neutral) via zero-init gate layer + zero bias
-      (sigmoid(0)=0.5), then residual_scale further damps the initial
-      effective contribution.
-    - residual_scale is a learnable scalar starting near 0, so the module
-      begins as a no-op and only gradually influences the pretrained
-      latent space as training finds it useful.
+      (sigmoid(0)=0.5). warmup_alpha (externally scheduled, 0->1) is
+      what damps the initial effective contribution now.
     - Dropout inside the MLPs regularizes the new graph branch so it
       cannot simply memorize per-sample connectivity patterns.
     """
     def __init__(self, token_dim, graph_dim=128, hidden_dim=256,
-                 dropout=0.2, residual_scale_init=0.05):
+                 dropout=0.2):
         super().__init__()
         self.token_dim = token_dim
         in_dim = token_dim + graph_dim
@@ -59,9 +56,6 @@ class GraphLatentModulation(nn.Module):
         nn.init.zeros_(self.gate_net[-1].weight)
         nn.init.zeros_(self.gate_net[-1].bias)
 
-        # Learnable damping factor, starts small (near-identity module)
-        self.residual_scale = nn.Parameter(torch.tensor(float(residual_scale_init)))
-
     def forward(self, tokens, graph, warmup_alpha=1.0):
         B = tokens.size(0)
         H = tokens.size(-1)
@@ -76,8 +70,8 @@ class GraphLatentModulation(nn.Module):
         gate  = torch.sigmoid(self.gate_net(joint))   # [0,1], per-sample/per-feature
 
         film_out = alpha * tokens + beta
-        # warmup_alpha (0->1, set externally) scales the learnable residual_scale,
-        # so at the start of training the graph branch is fully suppressed and
-        # gradually ramps in over the first few epochs. gate additionally lets
-        # the model down-weight the correction on a per-sample basis.
-        return tokens + (self.residual_scale * warmup_alpha) * gate * (film_out - tokens)
+        # warmup_alpha (0->1, set externally) suppresses the graph branch at
+        # the start of training and gradually ramps it in over the first few
+        # epochs. gate additionally lets the model down-weight the correction
+        # on a per-sample basis.
+        return tokens + warmup_alpha * gate * (film_out - tokens)
