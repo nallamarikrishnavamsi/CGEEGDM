@@ -7,8 +7,9 @@ multiple distinct labeled 50s windows, each needing its own 10s crop.
 
 Output: data/signal_cache/{eeg_id}_{offset}.pt
     {
-      'signal': FloatTensor [19, 2000],
-      'icoh_vec': FloatTensor [171],
+      'signal': FloatTensor [20, 2000],   # 20 of EEGDM's 22 bipolar channels;
+                                            # A1-T3, A2-T4 unavailable (HMS has no A1/A2)
+      'icoh_vec': FloatTensor [190],       # 20*19/2 upper-triangle entries
     }
 """
 import os, sys, time
@@ -19,6 +20,7 @@ from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.bipolar import build_bipolar
 
 HMS_CHANNELS = ['Fp1','F3','C3','P3','F7','T3','T5','O1',
                 'Fz','Cz','Pz','Fp2','F4','C4','P4','F8','T4','T6','O2']
@@ -58,7 +60,13 @@ def process_one(args):
             raw = mne.io.RawArray(sig, info, verbose="CRITICAL")
             raw.filter(l_freq=0.1, h_freq=75)
             raw.notch_filter(50)
-            sig = raw.get_data().astype(np.float32)
+            sig = raw.get_data().astype(np.float32)  # [19, T] filtered monopolar
+
+            # Bipolar TCP conversion (EEGDM's original montage). Only 20 of
+            # 22 derivations are constructible from HMS (no A1/A2 mastoid
+            # electrodes) -- see src/bipolar.py. No fabrication.
+            sig, used_names, used_indices, skipped = build_bipolar(sig, HMS_CHANNELS)
+            # sig is now [20, T] bipolar
 
             _cache['eeg_id'] = eeg_id
             _cache['sig'] = sig
@@ -74,14 +82,14 @@ def process_one(args):
         seg = sig[:, start_sample:end_sample]
         if seg.shape[1] < WINDOW:
             pad = WINDOW - seg.shape[1]
-            seg = np.concatenate([seg, np.zeros((len(HMS_CHANNELS), pad), dtype=np.float32)], axis=1)
+            seg = np.concatenate([seg, np.zeros((seg.shape[0], pad), dtype=np.float32)], axis=1)
         seg = seg[:, :WINDOW] / 100.0
 
         icoh_path = os.path.join(ICOH_CACHE_DIR, f"{key}.pt")
         if os.path.exists(icoh_path):
             icoh_vec = torch.load(icoh_path, weights_only=True)['icoh_vector']
         else:
-            icoh_vec = torch.zeros(171, dtype=torch.float32)
+            icoh_vec = torch.zeros(190, dtype=torch.float32)
 
         torch.save({
             'signal': torch.tensor(seg, dtype=torch.float32),

@@ -7,6 +7,7 @@ from multiprocessing import Pool, cpu_count
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.icoh import compute_icoh, icoh_upper_triangle
+from src.bipolar import build_bipolar
 
 HMS_CHANNELS = ['Fp1','F3','C3','P3','F7','T3','T5','O1',
                 'Fz','Cz','Pz','Fp2','F4','C4','P4','F8','T4','T6','O2']
@@ -42,7 +43,13 @@ def process_one(args):
             raw = mne.io.RawArray(sig, info, verbose="CRITICAL")
             raw.filter(l_freq=0.1, h_freq=75)   # matches EEGDM_original/conf/preprocessing/pretrain.yaml
             raw.notch_filter(50)                # method='fir', defaults unchanged, matches original EEGDM
-            sig = raw.get_data().astype(np.float32)
+            sig = raw.get_data().astype(np.float32)  # [19, T] filtered monopolar
+
+            # Bipolar TCP conversion -- must match precompute_signal_cache.py
+            # exactly so the classification signal and the iCOH graph branch
+            # see the identical channel set. See src/bipolar.py.
+            sig, used_names, used_indices, skipped = build_bipolar(sig, HMS_CHANNELS)
+            # sig is now [20, T] bipolar
 
             _cache['eeg_id'] = eeg_id
             _cache['sig'] = sig
@@ -60,7 +67,7 @@ def process_one(args):
         seg = sig[:, start_sample:end_sample]
         if seg.shape[1] < WINDOW:
             pad = WINDOW - seg.shape[1]
-            seg = np.concatenate([seg, np.zeros((len(HMS_CHANNELS), pad), dtype=np.float32)], axis=1)
+            seg = np.concatenate([seg, np.zeros((seg.shape[0], pad), dtype=np.float32)], axis=1)
 
         A = compute_icoh(seg, fs=FS)
         v = icoh_upper_triangle(A)

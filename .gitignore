@@ -13,3 +13,5 @@ gen/
 *.orig
 
 .DS_Store
+*.bak_*
+archive/

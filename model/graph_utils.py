@@ -1,10 +1,10 @@
 import torch
 
-NUM_NODES = 19
+NUM_NODES = 20  # 20 of EEGDM's 22 bipolar TCP channels (A1-T3/A2-T4 unavailable, see src/bipolar.py)
 
 def vector_to_adjacency(vec, augment=False, noise_std=0.05, edge_dropout_p=0.1):
     """
-    Convert iCOH vector [B,171] -> adjacency [B,19,19]
+    Convert iCOH vector [B,190] -> adjacency [B,20,20]
 
     Args:
         augment        : if True (training only), applies noise + edge dropout

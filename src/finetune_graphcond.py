@@ -26,26 +26,38 @@ from model.alignment import cosine_alignment_loss
 from dataloader.ConnectivityTUEVDataset import ConnectivityHMSDatasetCached
 
 
+# Indices into EEGDM's original 22-channel bipolar_ch_order that ARE
+# constructible from HMS (skips 8=A1-T3, 13=A2-T4 -- HMS has no A1/A2
+# electrodes). Verified against real HMS data via src/bipolar.py.
+USED_INDICES_22_TO_20 = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21]
+
+
 def load_original_backbone(ckpt_path, device='cpu'):
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     state_dict = ckpt['state_dict']
 
-    incompatible_keys = [
+    # Slice (not delete) label_embed: original is [22, d_cond_embed], one
+    # row per original bipolar channel. We keep the 20 rows that correspond
+    # to real, constructible HMS channels, preserving their pretrained
+    # values, rather than discarding the whole table.
+    label_embed_keys = [
         'model.label_embed.weight',
         'ema.online_model.label_embed.weight',
         'ema.ema_model.label_embed.weight',
     ]
-    for k in incompatible_keys:
+    for k in label_embed_keys:
         if k in state_dict:
-            del state_dict[k]
-            print(f"Removed incompatible key: {k}")
+            original = state_dict[k]
+            assert original.shape[0] == 22, f"{k}: expected 22 rows, got {original.shape[0]}"
+            state_dict[k] = original[USED_INDICES_22_TO_20]
+            print(f"Sliced {k}: 22 -> {state_dict[k].shape[0]} rows (kept pretrained values for available channels)")
 
     model_kwargs = {
         'in_channels': 1, 'd_model': 128, 'd_state': 128,
         'n_layer': 20, 'n_ssm': None, 'kernel_init': 'diag-lin',
         'kernel_mode': 'diag', 'bidirectional': True,
         'd_cond': 512, 'd_cond_embed': 128, 'local_cond_ch': 0,
-        'n_class': 19, 'have_null_class': False, 'self_gated': False,
+        'n_class': 20, 'have_null_class': False, 'self_gated': False,
     }
     ema_kwargs       = {'beta': 0.999, 'update_after_step': 100, 'update_every': 10}
     noise_sch_kwargs = {'num_train_timesteps': 50, 'beta_start': 0.0001,
@@ -116,7 +128,7 @@ class PLGraphConditionedClassifier(pl.LightningModule):
             classifier = base_classifier,
             graph_dim  = graph_dim,
             token_dim  = 128,  # d_model of the diffusion backbone (latent token feature dim)
-            num_nodes  = 19,
+            num_nodes  = 20,
             gcn_hidden = 128,
             gcn_layers = gcn_layers,
             gcn_dropout = gcn_dropout,
@@ -269,8 +281,12 @@ CLASSIFIER_MODEL_KWARGS = dict(
     d_embed=None, init_weight=False, embed_query=False,
     d_query_embed=None, have_ch_pos_embed=False,
     cat_ch_pos_embed=True, ch_pos_emb_sym="mirror",
-    ch_order=["Fp1","F3","C3","P3","F7","T3","T5","O1",
-              "Fz","Cz","Pz","Fp2","F4","C4","P4","F8","T4","T6","O2"],
+    ch_order=["FP1-F7", "F7-T3", "T3-T5", "T5-O1", "FP2-F8", "F8-T4", "T4-T6",
+              "T6-O2", "T3-C3", "C3-CZ", "C4-CZ", "T4-C4", "FP1-F3", "F3-C3",
+              "C3-P3", "P3-O1", "FP2-F4", "F4-C4", "C4-P4", "P4-O2"],
+    # ^ 20 of EEGDM's 22 bipolar channels (A1-T3, A2-T4 skipped -- see
+    # src/bipolar.py). Currently inert since have_ch_pos_embed=False below,
+    # kept consistent for correctness if that's ever enabled.
     clst_dim="TP", clst_pos_embed_dim="", n_clst=16,
     stack_struct="scf", num_heads=8, ff=4, dropout=0,
     have_crossnorm=False, across_pool_stack_struct="",
@@ -279,7 +295,10 @@ CLASSIFIER_MODEL_KWARGS = dict(
     classifier_pos_embed_dim="TPN",
     classifier_stack_struct="sfsfsfsfsfsfsfsf",
     classifier_final_act="pool", n_class=6,
-    use_cond=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
+    # Sequential indices into the SLICED (20-row) label_embed table -- NOT
+    # the same as USED_INDICES_22_TO_20 above (that indexes the original
+    # 22-row table; after slicing, the new table is naturally 0..19).
+    use_cond=list(range(20)),
 )
 
 
