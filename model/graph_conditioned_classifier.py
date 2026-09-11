@@ -35,7 +35,7 @@ class GraphConditionedClassifier(nn.Module):
         classifier   : original EEGDM Classifier instance
         graph_dim    : output dim of GraphEncoder (default 128)
         token_dim    : last dim H of latent tokens (default 128 = d_model)
-        num_nodes    : number of EEG channels (default 19)
+        num_nodes    : number of EEG channels (default 20, bipolar TCP)
         gcn_hidden   : hidden dim of GCN layers (default 128)
         gcn_layers   : number of GCN layers (default 3)
         gcn_dropout  : dropout inside GCN layers (default 0.1)
@@ -50,7 +50,7 @@ class GraphConditionedClassifier(nn.Module):
         classifier,
         graph_dim  = 128,
         token_dim  = 128,
-        num_nodes  = 19,
+        num_nodes  = 20,
         gcn_hidden = 128,
         gcn_layers = 3,
         gcn_dropout = 0.1,
@@ -92,7 +92,7 @@ class GraphConditionedClassifier(nn.Module):
         """
         Args:
             input         : EEG signal or cached tokens
-            icoh_vec      : [B, 171] iCOH upper triangle vector
+            icoh_vec      : [B, 190] iCOH upper triangle vector
             data_is_cached: if True, input is already cached tokens
             rate          : SSM rate (passed to extractor)
         Returns:
@@ -117,8 +117,8 @@ class GraphConditionedClassifier(nn.Module):
                 augment=self.augment_icoh and self.training,
                 noise_std=self.icoh_noise_std,
                 edge_dropout_p=self.icoh_edge_dropout_p,
-            )  # [B, 19, 19]
-            # tokens_pre_film: [B, n_layer, 1, pool, 1, C=19, H] -> mean over
+            )  # [B, 20, 20]
+            # tokens_pre_film: [B, n_layer, 1, pool, 1, C=20, H] -> mean over
             # (n_layer, pool) dims (1, 3), explicitly NOT touching batch dim 0.
             node_feats = tokens_pre_film.mean(dim=(1, 3))  # [B, 1, 1, C, H]
             node_feats = node_feats.reshape(tokens_pre_film.size(0), self.graph_encoder.num_nodes, -1)  # [B, C, H]

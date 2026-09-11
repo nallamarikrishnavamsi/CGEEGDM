@@ -66,7 +66,9 @@ class ConnectivityHMSDatasetCached(Dataset):
     """
     Fast version of ConnectivityHMSDataset that loads from precomputed
     signal cache instead of raw parquet files.
-    Cache format: {eeg_id}_{offset}.pt with keys 'signal' [19,2000] and 'icoh_vec' [171]
+    Cache format: {eeg_id}_{offset}.pt with keys 'signal' [20,2000] and 'icoh_vec' [190]
+    (20 of EEGDM's 22 bipolar TCP channels; A1-T3/A2-T4 unavailable -- HMS
+    has no A1/A2 electrodes. See src/bipolar.py.)
     """
     def __init__(self, root, split, signal_cache_dir, window_sec=10, fs=200):
         self.signal_cache_dir = signal_cache_dir
@@ -84,11 +86,11 @@ class ConnectivityHMSDatasetCached(Dataset):
         cache_path = os.path.join(self.signal_cache_dir, f"{key}.pt")
         if os.path.exists(cache_path):
             cache    = torch.load(cache_path, weights_only=True)
-            signal   = cache['signal']    # [19, 2000]
-            icoh_vec = cache['icoh_vec']  # [171]
+            signal   = cache['signal']    # [20, 2000]
+            icoh_vec = cache['icoh_vec']  # [190]
         else:
-            signal   = torch.zeros(19, 2000, dtype=torch.float32)
-            icoh_vec = torch.zeros(171, dtype=torch.float32)
+            signal   = torch.zeros(20, 2000, dtype=torch.float32)
+            icoh_vec = torch.zeros(190, dtype=torch.float32)
 
         votes = row[LABEL_COLS].values.astype(np.float32)
         total = votes.sum()

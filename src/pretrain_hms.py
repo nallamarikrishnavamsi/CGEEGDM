@@ -1,6 +1,6 @@
 """
 Pretrain a fresh diffusion backbone (Wavenet) from scratch on HMS,
-using the same 19-channel-labeled, per-channel diffusion objective as
+using the same 20-channel bipolar-labeled, per-channel diffusion objective as
 original EEGDM's TUEV pretraining (src/pretrain.py), adapted to argparse
 and HMS's data (correctly offset-windowed signal_cache).
 
@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from model.diffusion_model_pl import PLDiffusionModel
-from dataloader.HMSPretrainDataset import HMSPretrainDataset, HMS_CHANNELS
+from dataloader.HMSPretrainDataset import HMSPretrainDataset, BIPOLAR_CHANNELS_20
 
 
 class PrintEpochCallback(pl.Callback):
@@ -48,13 +48,13 @@ def main(args):
                                num_workers=4, pin_memory=True, persistent_workers=True,
                                drop_last=True)
 
-    # Fresh 19-channel backbone (HMS has 19 channels vs original TUEV's 22)
+    # Fresh 20-channel bipolar backbone (HMS has 20 of TUEV's 22 bipolar channels; A1-T3/A2-T4 excluded)
     model_kwargs = {
         'in_channels': 1, 'd_model': 128, 'd_state': 128,
         'n_layer': 20, 'n_ssm': None, 'kernel_init': 'diag-lin',
         'kernel_mode': 'diag', 'bidirectional': True,
         'd_cond': 512, 'd_cond_embed': 128, 'local_cond_ch': 0,
-        'n_class': 19, 'have_null_class': False, 'self_gated': False,
+        'n_class': 20, 'have_null_class': False, 'self_gated': False,
     }
     ema_kwargs       = {'beta': 0.999, 'update_after_step': 100, 'update_every': 10}
     noise_sch_kwargs = {'num_train_timesteps': 50, 'beta_start': 0.0001,
@@ -65,7 +65,7 @@ def main(args):
     gen_kwargs = {'root': './gen/', 'save_dir': 'pretrain_hms',
                   'n_sample': 1, 'shape': [1, 2000],
                   'save_intermediate': False, 'rescale': 1e-4, 'sfreq': 200,
-                  'ch_names': HMS_CHANNELS}
+                  'ch_names': BIPOLAR_CHANNELS_20}
 
     model = PLDiffusionModel(
         model_kwargs=model_kwargs, ema_kwargs=ema_kwargs,
