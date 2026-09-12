@@ -5,10 +5,10 @@
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
-#SBATCH --time=1-12:00:00
-#SBATCH --job-name=graphcond_finetune
-#SBATCH --output=/home/dsamantaai/krishna/files/CGEEGDM_Final/logs/graphcond_finetune_%j.log
-#SBATCH --error=/home/dsamantaai/krishna/files/CGEEGDM_Final/logs/graphcond_finetune_%j.err
+#SBATCH --time=2-12:00:00
+#SBATCH --job-name=graphcond_align_icoh
+#SBATCH --output=/home/dsamantaai/krishna/files/CGEEGDM_Final/logs/graphcond_align_icoh_%j.log
+#SBATCH --error=/home/dsamantaai/krishna/files/CGEEGDM_Final/logs/graphcond_align_icoh_%j.err
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate eegenv
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -19,13 +19,14 @@ mkdir -p logs checkpoint
 echo "Job started : $(date)"
 echo "GPU         : $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader)"
 srun python src/finetune_graphcond.py \
-    --name graphcond_finetune \
+    --name graphcond_align_icoh \
     --data_root /home/dsamantaai/krishna/data \
-    --train_csv finetune_train \
-    --val_csv finetune_val \
-    --test_csv finetune_test \
+    --train_csv full106k_train \
+    --val_csv full106k_val \
+    --test_csv full106k_test \
     --icoh_cache data/icoh_cache \
     --signal_cache data/signal_cache \
+    --connectivity_measure icoh \
     --backbone_ckpt checkpoints/backbone.ckpt \
     --batch_size 32 \
     --epochs 50 \

@@ -308,9 +308,12 @@ def main(args):
     torch.backends.cudnn.benchmark = False
     torch.set_float32_matmul_precision('medium')
 
-    train_ds = ConnectivityHMSDatasetCached(args.data_root, args.train_csv, args.signal_cache, window_sec=10)
-    val_ds   = ConnectivityHMSDatasetCached(args.data_root, args.val_csv, args.signal_cache, window_sec=10)
-    test_ds  = ConnectivityHMSDatasetCached(args.data_root, args.test_csv, args.signal_cache, window_sec=10)
+    train_ds = ConnectivityHMSDatasetCached(args.data_root, args.train_csv, args.signal_cache, window_sec=10,
+                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache)
+    val_ds   = ConnectivityHMSDatasetCached(args.data_root, args.val_csv, args.signal_cache, window_sec=10,
+                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache)
+    test_ds  = ConnectivityHMSDatasetCached(args.data_root, args.test_csv, args.signal_cache, window_sec=10,
+                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache)
     print(f"Train:{len(train_ds)}  Val:{len(val_ds)}  Test:{len(test_ds)}")
 
     steps_per_epoch = math.ceil(len(train_ds) / args.batch_size)
@@ -405,6 +408,9 @@ if __name__ == '__main__':
     parser.add_argument('--val_csv',   type=str, default='finetune_val')
     parser.add_argument('--test_csv',  type=str, default='finetune_test')
     parser.add_argument('--icoh_cache', type=str, default='data/icoh_cache')
+    parser.add_argument('--connectivity_measure', type=str, default='icoh', choices=['icoh', 'pearson'],
+                        help='Which connectivity statistic to use as the graph edge feature (ablation switch).')
+    parser.add_argument('--pearson_cache', type=str, default='data/pearson')
     parser.add_argument('--signal_cache', type=str,
                         default='data/signal_cache')
     parser.add_argument('--backbone_ckpt', type=str, default='checkpoints/backbone.ckpt')

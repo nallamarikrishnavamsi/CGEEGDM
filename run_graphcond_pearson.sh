@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
 #SBATCH --time=2-12:00:00
-#SBATCH --job-name=graphcond_noalign_icoh
-#SBATCH --output=/home/dsamantaai/krishna/files/CGEEGDM_Final/logs/graphcond_noalign_icoh_%j.log
-#SBATCH --error=/home/dsamantaai/krishna/files/CGEEGDM_Final/logs/graphcond_noalign_icoh_%j.err
+#SBATCH --job-name=graphcond_align_pc
+#SBATCH --output=/home/dsamantaai/krishna/files/CGEEGDM_Final/logs/graphcond_align_pc_%j.log
+#SBATCH --error=/home/dsamantaai/krishna/files/CGEEGDM_Final/logs/graphcond_align_pc_%j.err
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate eegenv
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -18,24 +18,25 @@ cd ~/krishna/files/CGEEGDM_Final
 mkdir -p logs checkpoint
 echo "Job started : $(date)"
 echo "GPU         : $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader)"
-# Graph conditioning ON, alignment loss OFF (lambda_align=0.0 -- confirmed
-# in src/finetune_graphcond.py this zeroes effective_lambda_align
-# regardless of align_start_epoch/ramp logic)
+# Connectivity-measure ablation: same graph-conditioned + alignment setup
+# as run_finetune_graphcond.sh, but using Pearson correlation instead of
+# iCOH as the graph edge feature (see src/precompute_pearson.py).
 srun python src/finetune_graphcond.py \
-    --name graphcond_noalign_icoh \
+    --name graphcond_align_pc \
     --data_root /home/dsamantaai/krishna/data \
     --train_csv full106k_train \
     --val_csv full106k_val \
     --test_csv full106k_test \
     --icoh_cache data/icoh_cache \
     --signal_cache data/signal_cache \
-    --connectivity_measure icoh \
+    --connectivity_measure pearson \
+    --pearson_cache data/pearson \
     --backbone_ckpt checkpoints/backbone.ckpt \
     --batch_size 32 \
     --epochs 50 \
-    --lambda_align 0.0 \
+    --lambda_align 0.1 \
     --use_graph 1 \
     --devices 2 \
     --wandb_project CGEEGDM \
-    --wandb_group NoAlign
+    --wandb_group Pearson
 echo "Job finished: $(date)"
