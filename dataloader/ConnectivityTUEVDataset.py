@@ -66,12 +66,31 @@ class ConnectivityHMSDatasetCached(Dataset):
     """
     Fast version of ConnectivityHMSDataset that loads from precomputed
     signal cache instead of raw parquet files.
+
+    connectivity_measure selects which graph-edge connectivity statistic
+    is returned as the third tuple element (ablation switch -- the two
+    measures are kept separate, never concatenated):
+      'icoh'    (default) -- imaginary coherence, embedded directly in
+                 the signal_cache file under key 'icoh_vec' [190]
+                 (merged in by precompute_signal_cache.py).
+      'pearson' -- Pearson correlation, loaded from a SEPARATE cache dir
+                 (pearson_cache_dir, default 'data/pearson') under key
+                 'pearson_vector' [190]. Computed on the SAME bipolar
+                 signal window (see src/precompute_pearson.py) using the
+                 identical upper-triangle convention as icoh_vec, so the
+                 two are directly swappable without any model change.
+
     Cache format: {eeg_id}_{offset}.pt with keys 'signal' [20,2000] and 'icoh_vec' [190]
     (20 of EEGDM's 22 bipolar TCP channels; A1-T3/A2-T4 unavailable -- HMS
     has no A1/A2 electrodes. See src/bipolar.py.)
     """
-    def __init__(self, root, split, signal_cache_dir, window_sec=10, fs=200):
+    def __init__(self, root, split, signal_cache_dir, window_sec=10, fs=200,
+                 connectivity_measure="icoh", pearson_cache_dir="data/pearson"):
+        assert connectivity_measure in ("icoh", "pearson"), \
+            f"connectivity_measure must be 'icoh' or 'pearson', got {connectivity_measure!r}"
         self.signal_cache_dir = signal_cache_dir
+        self.connectivity_measure = connectivity_measure
+        self.pearson_cache_dir = pearson_cache_dir
         self.df = pd.read_csv(os.path.join(root, f"{split}.csv")).reset_index(drop=True)
 
     def __len__(self):
@@ -85,16 +104,24 @@ class ConnectivityHMSDatasetCached(Dataset):
 
         cache_path = os.path.join(self.signal_cache_dir, f"{key}.pt")
         if os.path.exists(cache_path):
-            cache    = torch.load(cache_path, weights_only=True)
-            signal   = cache['signal']    # [20, 2000]
-            icoh_vec = cache['icoh_vec']  # [190]
+            cache  = torch.load(cache_path, weights_only=True)
+            signal = cache['signal']    # [20, 2000]
         else:
-            signal   = torch.zeros(20, 2000, dtype=torch.float32)
-            icoh_vec = torch.zeros(190, dtype=torch.float32)
+            signal = torch.zeros(20, 2000, dtype=torch.float32)
+
+        if self.connectivity_measure == "icoh":
+            conn_vec = cache['icoh_vec'] if os.path.exists(cache_path) \
+                else torch.zeros(190, dtype=torch.float32)
+        else:  # pearson
+            pearson_path = os.path.join(self.pearson_cache_dir, f"{key}.pt")
+            if os.path.exists(pearson_path):
+                conn_vec = torch.load(pearson_path, weights_only=True)['pearson_vector']  # [190]
+            else:
+                conn_vec = torch.zeros(190, dtype=torch.float32)
 
         votes = row[LABEL_COLS].values.astype(np.float32)
         total = votes.sum()
         label = votes / total if total > 0 else np.ones(6, dtype=np.float32) / 6
         soft_label = torch.tensor(label, dtype=torch.float32)
 
-        return signal, soft_label, icoh_vec
+        return signal, soft_label, conn_vec
