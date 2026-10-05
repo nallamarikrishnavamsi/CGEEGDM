@@ -1,0 +1,10 @@
+Class              baselinepearson_cw_noalign
+Seizure              0.6577         0.6840
+LPD                  0.7540         0.7884
+GPD                  0.6558         0.6705
+LRDA                 0.6071         0.5700
+GRDA                 0.6317         0.5752
+Other                0.5334         0.5349
+
+Overall kappa         0.5588         0.5600
+Macro F1             0.6400         0.6372

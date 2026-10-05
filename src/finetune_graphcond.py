@@ -23,6 +23,7 @@ from model.diffusion_model_pl import PLDiffusionModel
 from model.classifier import Classifier
 from model.graph_conditioned_classifier import GraphConditionedClassifier
 from model.alignment import cosine_alignment_loss
+from model.extractor_foldfix import LatentActivityExtractorFoldFix
 from dataloader.ConnectivityTUEVDataset import ConnectivityHMSDatasetCached
 
 
@@ -115,7 +116,8 @@ class PLGraphConditionedClassifier(pl.LightningModule):
                  lambda_graph_l2=0.0,
                  augment_icoh=False,
                  icoh_noise_std=0.05,
-                 icoh_edge_dropout_p=0.1):
+                 icoh_edge_dropout_p=0.1,
+                 fix_extractor_fold=False):
         super().__init__()
         self.save_hyperparameters()
         self.lambda_align = lambda_align
@@ -137,6 +139,9 @@ class PLGraphConditionedClassifier(pl.LightningModule):
             icoh_noise_std = icoh_noise_std,
             icoh_edge_dropout_p = icoh_edge_dropout_p,
         )
+
+        if fix_extractor_fold:   # must happen before EMA deep-copies self.model
+            LatentActivityExtractorFoldFix.from_existing(self.model.classifier.extractor)
 
         # EMA on classifier — matches original EEGDM
         self.ema = EMA(
@@ -354,6 +359,7 @@ def main(args):
         icoh_noise_std     = args.icoh_noise_std,
         icoh_edge_dropout_p = args.icoh_edge_dropout_p,
         lambda_graph_l2    = args.lambda_graph_l2,
+        fix_extractor_fold = bool(args.fix_extractor_fold),
     )
 
     import os as _os
@@ -438,6 +444,7 @@ if __name__ == '__main__':
     parser.add_argument('--icoh_noise_std', type=float, default=0.05)
     parser.add_argument('--icoh_edge_dropout_p', type=float, default=0.1)
     parser.add_argument('--lambda_graph_l2', type=float, default=0.0)
+    parser.add_argument('--fix_extractor_fold', type=int, default=1)
     args = parser.parse_args()
     args.use_graph = bool(args.use_graph)
     main(args)

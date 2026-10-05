@@ -22,16 +22,34 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dataloader.ConnectivityTUEVDataset import ConnectivityHMSDatasetCached
 from src.finetune_graphcond import PLGraphConditionedClassifier
+from model.extractor_foldfix import LatentActivityExtractorFoldFix
 
 LABEL_NAMES = ['Seizure', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other']
 
 
 @torch.no_grad()
-def get_predictions(ckpt_path, data_root, test_csv, signal_cache, device='cuda'):
+def get_predictions(ckpt_path, data_root, test_csv, signal_cache, device='cuda',
+                     fix_extractor_fold=False):
     print(f"Loading checkpoint: {ckpt_path}")
     model = PLGraphConditionedClassifier.load_from_checkpoint(ckpt_path, weights_only=False)
     model.eval()
     model.to(device)
+
+    if fix_extractor_fold:
+        # load_from_checkpoint always reconstructs the plain (unfixed)
+        # LatentActivityExtractor and loads the state_dict by buffer name --
+        # LatentActivityExtractorFoldFix.from_existing() is a __class__ swap
+        # on the same object, so it adds no new keys and would load silently
+        # either way. Must be applied explicitly here, on every extractor
+        # copy that inference could go through (get_predictions calls
+        # model.ema(...), matching validation_step/test_step convention).
+        for m in (getattr(model, 'model', None),
+                  getattr(model.ema, 'online_model', None),
+                  getattr(model.ema, 'ema_model', None)):
+            if m is not None:
+                LatentActivityExtractorFoldFix.from_existing(m.classifier.extractor)
+        print(f"  [fix_extractor_fold=1] swapped in LatentActivityExtractorFoldFix "
+              f"for model, ema.online_model, ema.ema_model")
 
     test_ds = ConnectivityHMSDatasetCached(data_root, test_csv, signal_cache, window_sec=10)
     loader = DataLoader(test_ds, batch_size=32, shuffle=False, num_workers=2)
@@ -102,9 +120,21 @@ def main(args):
 
     results = {}
     for spec in args.ckpts:
-        name, ckpt_path = spec.split(':', 1)
+        # name:path  or  name:path:fold_fix (fold_fix is '0' or '1', default '0'
+        # if omitted -- fully backward compatible with existing invocations)
+        parts = spec.split(':')
+        if len(parts) == 3:
+            name, ckpt_path, fold_flag = parts
+        elif len(parts) == 2:
+            name, ckpt_path = parts
+            fold_flag = '0'
+        else:
+            raise ValueError(
+                f"invalid --ckpts entry {spec!r}: expected name:path or name:path:fold_fix")
+        fix_extractor_fold = bool(int(fold_flag))
         preds, labels = get_predictions(
-            ckpt_path, args.data_root, args.test_csv, args.signal_cache, device)
+            ckpt_path, args.data_root, args.test_csv, args.signal_cache, device,
+            fix_extractor_fold=fix_extractor_fold)
         results[name] = per_class_report(name, preds, labels)
 
     # Comparison table: F1 per class, side by side

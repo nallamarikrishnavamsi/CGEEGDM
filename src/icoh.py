@@ -49,7 +49,7 @@ def icoh_upper_triangle(A):
     """
     Extract upper triangle from symmetric iCOH matrix.
     A: [C, C]
-    returns: [C*(C-1)/2] float32  (171 for C=19)
+    returns: [C*(C-1)/2] float32  (190 for C=20)
     """
     idx = np.triu_indices(A.shape[0], k=1)
     return A[idx].astype(np.float32)
