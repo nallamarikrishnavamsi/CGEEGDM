@@ -9,7 +9,7 @@ P4, F8, T4, T6, O2, EKG. No A1/A2 (mastoid reference) electrodes exist
 in this dataset.
 
 Consequence: 20 of the 22 EEGDM bipolar derivations are constructible.
-"A1-T3" (index 9) and "A2-T4" (index 14) CANNOT be constructed --
+"A1-T3" (index 8) and "A2-T4" (index 13, 0-based) CANNOT be constructed --
 A1 and A2 are not recorded electrodes in HMS. This module does not
 fabricate them. It returns only the 20 available channels, in their
 original relative EEGDM order, plus the indices that were dropped so

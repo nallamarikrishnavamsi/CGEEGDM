@@ -14,11 +14,16 @@ nor the checkpoint contain any length-1000-sized learned parameter
 no pos/embed-named checkpoint tensors besides label_embed/t_embed, neither
 of which is sequence-position-dependent).
 
-However, the backbone was only ever PRETRAINED with kernels generated at
-length 1000 (gen_kwargs.shape=[1,1000]), so feeding length 2000 directly
-exercises the SSM kernel at a length it was never trained with -- this is
-the empirical question this ablation exists to answer, compared against
-the fold-based (run_finetune_graphcond.sh etc.) results.
+Crucially, OUR backbone was pretrained on HMS at length 2000
+(src/pretrain_hms.py: gen_kwargs.shape=[1,2000]; HMSPretrainDataset yields
+[1, 2000] per-channel rows), NOT at 1000. EEGDM's backbone was pretrained on
+TUEV at 1000 (5s @ 200Hz), which is why their extractor folds L=2000 inputs
+into 2x1000 -- a compatibility shim to hit ITS pretraining length.
+
+Since our pretraining length already equals our finetune window, no shim is
+needed, and folding would instead feed the frozen backbone 1000-sample
+sequences it never saw. This variant is therefore the configuration that
+matches pretraining, not an out-of-distribution ablation.
 
 For input length <= 1000, behavior is identical to the original/FoldFix
 extractor (fold is always 1 in that case regardless).

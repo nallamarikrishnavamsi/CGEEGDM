@@ -26,7 +26,7 @@ import torch.nn.functional as F
 def symmetric_normalize(adj):
     """Identical to graph_encoder.py's symmetric_normalize. Kipf & Welling
     D^-1/2 A D^-1/2, with degree clamped >= 0 before pow(-0.5)."""
-    deg = adj.sum(-1).clamp(min=0)          # [B, N]
+    deg = adj.abs().sum(-1).clamp(min=1e-6)  # [B, N]
     d_inv_sqrt = deg.pow(-0.5)
     d_inv_sqrt[torch.isinf(d_inv_sqrt) | torch.isnan(d_inv_sqrt)] = 0.0
     D = torch.diag_embed(d_inv_sqrt)        # [B, N, N]

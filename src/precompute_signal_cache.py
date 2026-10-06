@@ -22,6 +22,13 @@ from multiprocessing import Pool, cpu_count
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.bipolar import build_bipolar
 
+
+def staged_mu_law_np(x, mu=255.0):
+    """EEGDM staged mu-law: compand only where |x| > 1, identity below.
+    Numerically identical to staged_mu_law_torch in ConnectivityTUEVDataset."""
+    xm = np.sign(x) * np.log1p(mu * np.abs(x)) / np.log1p(mu)
+    return np.where(np.abs(x) > 1, xm, x).astype(np.float32)
+
 HMS_CHANNELS = ['Fp1','F3','C3','P3','F7','T3','T5','O1',
                 'Fz','Cz','Pz','Fp2','F4','C4','P4','F8','T4','T6','O2']
 
@@ -84,6 +91,9 @@ def process_one(args):
             pad = WINDOW - seg.shape[1]
             seg = np.concatenate([seg, np.zeros((seg.shape[0], pad), dtype=np.float32)], axis=1)
         seg = seg[:, :WINDOW] / 100.0
+        # mu-law AFTER /100.0 -- reproduces exactly what the dataloader
+        # applied at load time. Run finetune with --mu_law 0.
+        seg = staged_mu_law_np(seg, mu=255.0)
 
         icoh_path = os.path.join(ICOH_CACHE_DIR, f"{key}.pt")
         if os.path.exists(icoh_path):

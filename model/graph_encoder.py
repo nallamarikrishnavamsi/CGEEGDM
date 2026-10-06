@@ -7,11 +7,19 @@ def symmetric_normalize(adj):
     """
     Kipf & Welling symmetric normalization: D^-1/2 A D^-1/2
     adj: [B, N, N]
-    Clamps degree to be non-negative before pow(-0.5) to avoid NaN
-    from negative-weight edges (real iCOH is always in [0,1], but this
-    guards against any upstream numerical edge case).
+    Degree is taken over adj.abs() so that SIGNED adjacencies (Pearson
+    correlation, range [-1,1]) cannot produce a zero or negative degree.
+    With a plain adj.sum(), a node whose positive and negative edges
+    cancel gets degree <= 0 -> pow(-0.5) = inf -> zeroed by the guard
+    below -> its entire ROW AND COLUMN of D@adj@D become 0, silently
+    disconnecting the node (including from itself) with no error raised.
+    Measured on data/pearson: 9.9% of nodes, 76.9% of samples.
+
+    For non-negative adjacency (iCOH in [0,1], plus the +1 self-loop)
+    abs() is the identity, so this change is a mathematical no-op and
+    every previously reported iCOH result is bit-identical.
     """
-    deg = adj.sum(-1).clamp(min=0)          # [B, N]
+    deg = adj.abs().sum(-1).clamp(min=1e-6)  # [B, N]
     d_inv_sqrt = deg.pow(-0.5)
     d_inv_sqrt[torch.isinf(d_inv_sqrt) | torch.isnan(d_inv_sqrt)] = 0.0
     D = torch.diag_embed(d_inv_sqrt)        # [B, N, N]

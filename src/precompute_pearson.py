@@ -18,7 +18,7 @@ For each 20-channel window:
                             triangle, k = 0..189) so the two are directly
                             comparable / swappable as graph edge features.
 
-Output: data/pearson_cache/{eeg_id}_{offset}.pt
+Output: data/pearson/{eeg_id}_{offset}.pt
     {
       'pearson_matrix': FloatTensor [20, 20],
       'pearson_vector': FloatTensor [190],

@@ -418,7 +418,7 @@ if __name__ == '__main__':
     parser.add_argument('--connectivity_measure', type=str, default='icoh', choices=['icoh', 'pearson'],
                         help='Which connectivity statistic to use as the graph edge feature (ablation switch).')
     parser.add_argument('--pearson_cache', type=str, default='data/pearson')
-    parser.add_argument('--mu_law', type=int, default=1,
+    parser.add_argument('--mu_law', type=int, default=0,
                         help='1 = apply staged_mu_law signal embedding, matching original EEGDM (conf/{cache,pretrain,finetune}/base.yaml). 0 = linear input (previous behaviour).')
     parser.add_argument('--signal_cache', type=str,
                         default='data/signal_cache')
