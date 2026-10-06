@@ -24,6 +24,7 @@ from model.classifier import Classifier
 from model.graph_conditioned_classifier import GraphConditionedClassifier
 from model.alignment import cosine_alignment_loss
 from model.extractor_foldfix import LatentActivityExtractorFoldFix
+from model.extractor_nofold import LatentActivityExtractorNoFold
 from dataloader.ConnectivityTUEVDataset import ConnectivityHMSDatasetCached
 
 
@@ -117,7 +118,8 @@ class PLGraphConditionedClassifier(pl.LightningModule):
                  augment_icoh=False,
                  icoh_noise_std=0.05,
                  icoh_edge_dropout_p=0.1,
-                 fix_extractor_fold=False):
+                 fix_extractor_fold=False,
+                 extractor_mode='fold_fix'):
         super().__init__()
         self.save_hyperparameters()
         self.lambda_align = lambda_align
@@ -140,7 +142,10 @@ class PLGraphConditionedClassifier(pl.LightningModule):
             icoh_edge_dropout_p = icoh_edge_dropout_p,
         )
 
-        if fix_extractor_fold:   # must happen before EMA deep-copies self.model
+        # must happen before EMA deep-copies self.model
+        if extractor_mode == 'no_fold':
+            LatentActivityExtractorNoFold.from_existing(self.model.classifier.extractor)
+        elif fix_extractor_fold:
             LatentActivityExtractorFoldFix.from_existing(self.model.classifier.extractor)
 
         # EMA on classifier — matches original EEGDM
@@ -360,6 +365,7 @@ def main(args):
         icoh_edge_dropout_p = args.icoh_edge_dropout_p,
         lambda_graph_l2    = args.lambda_graph_l2,
         fix_extractor_fold = bool(args.fix_extractor_fold),
+        extractor_mode = args.extractor_mode,
     )
 
     import os as _os
@@ -445,6 +451,12 @@ if __name__ == '__main__':
     parser.add_argument('--icoh_edge_dropout_p', type=float, default=0.1)
     parser.add_argument('--lambda_graph_l2', type=float, default=0.0)
     parser.add_argument('--fix_extractor_fold', type=int, default=1)
+    parser.add_argument('--extractor_mode', type=str, default='fold_fix',
+                        choices=['fold_fix', 'no_fold'],
+                        help="'fold_fix' (default): split L>1000 into independent "
+                             "1000-sample folds (correct channel ordering). "
+                             "'no_fold': feed full length directly, no splitting "
+                             "(ablation). Overrides --fix_extractor_fold when set.")
     args = parser.parse_args()
     args.use_graph = bool(args.use_graph)
     main(args)
