@@ -41,3 +41,22 @@ not listed here is unintentional and must be reverted or reviewed.
 - Kept solely as a reference copy for verify_ground_truth.sh (proves the
   original TUEV loader is unmodified). NOT used by any HMS/CGEEGDM training
   script — ConnectivityTUEVDataset.py (HMS-based) is what's actually used.
+
+## 2026-10-06: input pipeline corrections
+
+- **mu-law signal embedding was missing.** EEGDM applies `src.util.staged_mu_law`
+  at cache, pretrain and finetune (conf/{cache,pretrain,finetune}/base.yaml), so
+  checkpoints/backbone.ckpt was pretrained on companded input. CGEEGDM applied only
+  `/100` and fed the frozen backbone linear signal. Fixed via `apply_mu_law` in
+  ConnectivityHMSDatasetCached, `--mu_law` (default 1) in all five entry points.
+  Measured: affects 1.438% of samples; peak 1.9332 -> 1.1185.
+- **iCOH averaged over filtered-out frequencies.** compute_icoh() averaged all 129
+  Welch bins (0-100 Hz) though the signal is 0.1-75 Hz band-passed and 50 Hz notched.
+  The 33 out-of-band bins carry |icoh| = 0.163 each (vs 0.197 in band), i.e. 22.1% of
+  every edge weight was filter noise. New: src/icoh_band.py keeps 91 of 129 bins.
+- **Jobs 31755/31756/31757** are the only runs using the pre-fold-fix extractor.
+- **All runs before 2026-10-06** used linear input and full-band iCOH; not comparable
+  to later runs.
+- `--icoh_cache` is a dead flag in all entry points (only ConnectivityHMSDataset,
+  which is never instantiated, reads it). data/icoh_cache is still the provenance
+  source for signal_cache's embedded icoh_vec.

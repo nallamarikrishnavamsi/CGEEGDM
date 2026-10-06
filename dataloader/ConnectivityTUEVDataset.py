@@ -6,6 +6,22 @@ from torch.utils.data import Dataset
 
 HMS_CHANNELS = ['Fp1','F3','C3','P3','F7','T3','T5','O1',
                 'Fz','Cz','Pz','Fp2','F4','C4','P4','F8','T4','T6','O2']
+
+def staged_mu_law_torch(x, mu=255.0):
+    """
+    Torch equivalent of src.util.staged_mu_law (scale=1), the signal embedding
+    used by original EEGDM at cache/pretrain/finetune time
+    (EEGDM_original/conf/{cache,pretrain,finetune}/base.yaml -> src.util.staged_mu_law).
+
+    Identity for |x| <= 1; mu-law compression beyond that, so large-amplitude
+    excursions are compressed more than small ones. The signal cache already
+    stores x/100, so applying this reproduces EEGDM's div_100_staged_mu_law.
+    """
+    import math
+    xm = torch.sign(x) * torch.log1p(mu * x.abs()) / math.log1p(mu)
+    return torch.where(x.abs() > 1, xm, x)
+
+
 LABEL_COLS = ['seizure_vote','lpd_vote','gpd_vote',
               'lrda_vote','grda_vote','other_vote']
 
@@ -85,12 +101,14 @@ class ConnectivityHMSDatasetCached(Dataset):
     has no A1/A2 electrodes. See src/bipolar.py.)
     """
     def __init__(self, root, split, signal_cache_dir, window_sec=10, fs=200,
-                 connectivity_measure="icoh", pearson_cache_dir="data/pearson"):
+                 connectivity_measure="icoh", pearson_cache_dir="data/pearson",
+                 apply_mu_law=False):
         assert connectivity_measure in ("icoh", "pearson"), \
             f"connectivity_measure must be 'icoh' or 'pearson', got {connectivity_measure!r}"
         self.signal_cache_dir = signal_cache_dir
         self.connectivity_measure = connectivity_measure
         self.pearson_cache_dir = pearson_cache_dir
+        self.apply_mu_law = apply_mu_law
         self.df = pd.read_csv(os.path.join(root, f"{split}.csv")).reset_index(drop=True)
 
     def __len__(self):
@@ -124,4 +142,6 @@ class ConnectivityHMSDatasetCached(Dataset):
         label = votes / total if total > 0 else np.ones(6, dtype=np.float32) / 6
         soft_label = torch.tensor(label, dtype=torch.float32)
 
+        if self.apply_mu_law:
+            signal = staged_mu_law_torch(signal)
         return signal, soft_label, conn_vec

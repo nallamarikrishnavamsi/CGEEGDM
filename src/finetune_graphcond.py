@@ -321,11 +321,11 @@ def main(args):
     torch.set_float32_matmul_precision('medium')
 
     train_ds = ConnectivityHMSDatasetCached(args.data_root, args.train_csv, args.signal_cache, window_sec=10,
-                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache)
+                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache, apply_mu_law=bool(args.mu_law))
     val_ds   = ConnectivityHMSDatasetCached(args.data_root, args.val_csv, args.signal_cache, window_sec=10,
-                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache)
+                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache, apply_mu_law=bool(args.mu_law))
     test_ds  = ConnectivityHMSDatasetCached(args.data_root, args.test_csv, args.signal_cache, window_sec=10,
-                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache)
+                                             connectivity_measure=args.connectivity_measure, pearson_cache_dir=args.pearson_cache, apply_mu_law=bool(args.mu_law))
     print(f"Train:{len(train_ds)}  Val:{len(val_ds)}  Test:{len(test_ds)}")
 
     steps_per_epoch = math.ceil(len(train_ds) / args.batch_size)
@@ -425,6 +425,8 @@ if __name__ == '__main__':
     parser.add_argument('--connectivity_measure', type=str, default='icoh', choices=['icoh', 'pearson'],
                         help='Which connectivity statistic to use as the graph edge feature (ablation switch).')
     parser.add_argument('--pearson_cache', type=str, default='data/pearson')
+    parser.add_argument('--mu_law', type=int, default=1,
+                        help='1 = apply staged_mu_law signal embedding, matching original EEGDM (conf/{cache,pretrain,finetune}/base.yaml). 0 = linear input (previous behaviour).')
     parser.add_argument('--signal_cache', type=str,
                         default='data/signal_cache')
     parser.add_argument('--backbone_ckpt', type=str, default='checkpoints/backbone.ckpt')
