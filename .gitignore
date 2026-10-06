@@ -16,3 +16,9 @@ gen/
 *.bak_*
 archive/
 slurm-*.out
+
+run_*.sh
+resubmit_*.sh
+resubmit_*.log
+submitted_*.txt
+README*
