@@ -145,8 +145,10 @@ class PLGraphConditionedClassifier(pl.LightningModule):
         # must happen before EMA deep-copies self.model
         if extractor_mode == 'no_fold':
             LatentActivityExtractorNoFold.from_existing(self.model.classifier.extractor)
-        elif fix_extractor_fold:
+        elif extractor_mode == 'fold_fix' or fix_extractor_fold:
             LatentActivityExtractorFoldFix.from_existing(self.model.classifier.extractor)
+        print(f"[extractor] mode={extractor_mode} fix_flag={fix_extractor_fold} "
+              f"-> {type(self.model.classifier.extractor).__name__}", flush=True)
 
         # EMA on classifier — matches original EEGDM
         self.ema = EMA(
@@ -452,7 +454,7 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_graph_l2', type=float, default=0.0)
     parser.add_argument('--fix_extractor_fold', type=int, default=1)
     parser.add_argument('--extractor_mode', type=str, default='fold_fix',
-                        choices=['fold_fix', 'no_fold'],
+                        choices=['original', 'fold_fix', 'no_fold'],
                         help="'fold_fix' (default): split L>1000 into independent "
                              "1000-sample folds (correct channel ordering). "
                              "'no_fold': feed full length directly, no splitting "

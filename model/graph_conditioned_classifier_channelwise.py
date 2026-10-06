@@ -46,6 +46,10 @@ class GraphConditionedClassifierChannelwise(nn.Module):
         self.augment_icoh = augment_icoh
         self.icoh_noise_std = icoh_noise_std
         self.icoh_edge_dropout_p = icoh_edge_dropout_p
+        if use_graph:
+            assert classifier.extractor.C == num_nodes, (
+                f'extractor uses {classifier.extractor.C} EEG channels but num_nodes={num_nodes}; '
+                'graph node c must be EEG channel c')
 
         self.graph_encoder = GraphEncoderChannelwise(
             num_nodes  = num_nodes,
@@ -86,6 +90,8 @@ class GraphConditionedClassifierChannelwise(nn.Module):
                 edge_dropout_p=self.icoh_edge_dropout_p,
             )  # [B, 20, 20]
 
+            assert tokens_pre_film.size(2) == 1 and tokens_pre_film.size(4) == 1, (
+                f'node-feature reshape assumes T=Q=1, got {tuple(tokens_pre_film.shape)}')
             node_feats = tokens_pre_film.mean(dim=(1, 3))  # [B, 1, 1, C, H]
             node_feats = node_feats.reshape(tokens_pre_film.size(0), self.graph_encoder.num_nodes, -1)  # [B, C, H]
 
