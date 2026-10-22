@@ -1,55 +1,43 @@
+"""
+Imaginary part of coherency (Nolte et al., 2004), Welch estimate.
+
+  Welch : Hann window, nperseg=400 (2 s at 200 Hz -> 0.5 Hz bins, as in
+          Nentwich et al., 2020), 50% overlap -> K = 9 segments per 10 s.
+  IC_xy(f) = Im(S_xy(f)) / sqrt(S_xx(f) * S_yy(f))       per frequency bin
+  A_xy     = mean over 0.5..75 Hz of |IC_xy(f)|          150 bins, inclusive
+
+Input must be the LINEAR signal (mu-law removed). fmin=0.5 excludes the
+DC bin (Im(S_xy) is identically 0 there). 75 Hz = preprocessing low-pass.
+"""
 import numpy as np
-from scipy.signal import csd, welch
+from scipy.signal import csd
+
+NPERSEG = 400
+FMIN = 0.5
+FMAX = 75.0
 
 
-def compute_icoh(signal, fs=200):
-    """
-    Compute Imaginary Coherence matrix — correct per-frequency formula
-    (Nolte et al. 2004).
+def compute_icoh(signal, fs=200, nperseg=NPERSEG, fmin=FMIN, fmax=FMAX):
+    signal = np.asarray(signal, dtype=np.float64)
+    C, T = signal.shape
+    nperseg = min(T, nperseg)
 
-    signal: [C, T] numpy float32
-    returns: [C, C] float32
+    # full cross-spectral matrix S[i, j, f]; its diagonal is the Welch PSD
+    f, S = csd(signal[:, None, :], signal[None, :, :], fs=fs, nperseg=nperseg)
 
-    icoh(f) = Im(Cxy(f)) / sqrt(Pxx(f) * Pyy(f))   <- per frequency bin
-    icoh    = mean_f( |icoh(f)| )                   <- then average
-    """
-    C = signal.shape[0]
-    A = np.zeros((C, C), dtype=np.float32)
-    nperseg = min(signal.shape[1], 256)
+    keep = (f >= fmin) & (f <= fmax)
+    S = S[..., keep]
 
-    # Per-frequency PSD for every channel: [C, F]
-    pxx_f = np.array([
-        welch(signal[i], fs=fs, nperseg=nperseg)[1]
-        for i in range(C)
-    ])  # [C, F]
+    P = np.real(np.diagonal(S, axis1=0, axis2=1)).T          # [C, F]
+    denom = np.sqrt(P[:, None, :] * P[None, :, :])           # [C, C, F]
+    ic = np.divide(np.imag(S), denom, out=np.zeros_like(denom), where=denom > 0)
 
-    for i in range(C):
-        for j in range(i + 1, C):
-            _, Cxy_f = csd(signal[i], signal[j], fs=fs, nperseg=nperseg)  # [F] complex
-
-            denom = np.sqrt(pxx_f[i] * pxx_f[j]) + 1e-8       # [F]
-            icoh_f = np.imag(Cxy_f) / denom                    # [F], per-frequency ratio
-            icoh = np.mean(np.abs(icoh_f))                     # scalar, average AFTER ratio
-
-            A[i, j] = A[j, i] = float(icoh)
-
-    # No post-hoc normalization: icoh(f) = Im(Cxy)/sqrt(Pxx*Pyy) is already
-    # bounded in [-1, 1] by the coherence magnitude bound, so |icoh_f| in
-    # [0, 1] and its mean stay in [0, 1] automatically. A prior per-sample
-    # max-normalization here rescaled each sample independently, which
-    # discarded real cross-sample differences in connectivity strength
-    # (exactly what the alignment loss needs) and made edge weights
-    # incomparable across samples. GraphEncoder already L2-normalizes
-    # the pooled graph embedding at its output (F.normalize) for FiLM
-    # input stability, so scale safety downstream is still covered.
+    A = np.abs(ic).mean(-1).astype(np.float32)
+    np.fill_diagonal(A, 0.0)
     return A
 
 
 def icoh_upper_triangle(A):
-    """
-    Extract upper triangle from symmetric iCOH matrix.
-    A: [C, C]
-    returns: [C*(C-1)/2] float32  (190 for C=20)
-    """
+    """Row-major upper triangle (i < j): 190 values for C = 20."""
     idx = np.triu_indices(A.shape[0], k=1)
     return A[idx].astype(np.float32)

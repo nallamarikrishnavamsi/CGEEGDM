@@ -50,7 +50,7 @@ def get_predictions(ckpt_path, data_root, test_csv, signal_cache, device='cuda',
 
         # Use EMA weights, matching validation_step/test_step convention
         logits, _, _ = model.ema(
-            (signal, None), icoh_vec, return_alignment=True, warmup_alpha=1.0
+            (signal, None), icoh_vec, return_alignment=True
         )
         preds = logits.argmax(dim=-1).cpu().numpy()
         hard  = soft_label.argmax(dim=-1).cpu().numpy()

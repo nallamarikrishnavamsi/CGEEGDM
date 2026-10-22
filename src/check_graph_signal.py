@@ -36,7 +36,7 @@ for spec in args.ckpts:
         nf  = tok.mean(dim=(1, 3)).reshape(tok.size(0), 20, -1)
         out = net.graph_encoder(adj, node_features=nf)
         g   = out[0] if isinstance(out, tuple) else out
-        film = net.graph_modulator(tok, g, warmup_alpha=1.0)
+        film = net.graph_modulator(tok, g)
 
     print(f"\n=== {name} ({kind}) ===")
     print(f"  adjacency: per-entry std across samples {adj.std(0).mean():.4f} (mean {adj.mean():.4f})")

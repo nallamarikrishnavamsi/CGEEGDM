@@ -40,10 +40,13 @@ class GraphConv(nn.Module):
 
 class LearnedReadout(nn.Module):
     """
-    Attention-free learned pooling (weighted sum over nodes).
-    Replaces plain mean-pooling with a per-node importance score,
-    letting the model emphasize informative electrodes rather than
-    treating all 19 channels equally.
+    Global attention pooling (attentional aggregation): a softmax-weighted
+    sum over nodes, r = sum_n softmax(h_gate(x_n)) * x_n, i.e. PyTorch
+    Geometric's AttentionalAggregation / DGL's GlobalAttentionPooling with
+    h_Theta = identity (Li et al. 2019, arXiv:1904.12787).
+    Replaces plain mean-pooling with a per-node importance score, letting
+    the model emphasize informative electrodes rather than treating all
+    20 channels equally.
 
     score = mlp(node_features)          [B, N, 1]
     weight = softmax(score, dim=nodes)  [B, N, 1]
@@ -112,7 +115,7 @@ class GraphEncoder(nn.Module):
         B = adj.size(0)
 
         # No internal edge dropout here: vector_to_adjacency() already
-        # applies symmetric edge dropout (+ noise) during connectivity
+        # applies symmetric edge dropout (DropEdge) during connectivity
         # augmentation, gated by augment_icoh. Doing it again here would
         # double-perturb the same adjacency matrix.
         adj_norm = symmetric_normalize(adj)
@@ -122,12 +125,16 @@ class GraphEncoder(nn.Module):
         else:
             x = self.node_embedding.unsqueeze(0).expand(B, -1, -1)
 
-        for layer in self.layers:
-            x = x + self.dropout(layer(x, adj_norm))   # residual per layer
+        # Residual GCN (Kipf & Welling 2017, App. B, Eq. 14): H' = sigma(A H W) + H.
+        # Dropout on the layer INPUT of the first and last layer only (App. B).
+        L = len(self.layers)
+        for l, layer in enumerate(self.layers):
+            h = self.dropout(x) if l in (0, L - 1) else x
+            x = x + layer(h, adj_norm)
 
         readout, node_weights = self.readout(x)          # [B, hidden_dim]
         self._last_node_weights = node_weights.detach()   # store for inspection
-        # No projection: graph embedding is the readout itself (128-d),
-        # matching token_dim directly. See GROUND_TRUTH_EXCEPTIONS.md.
-        graph_emb = F.normalize(readout, dim=-1)          # stabilize FiLM inputs
+        # No projection and no L2 normalization: the readout is passed to FiLM
+        # as-is (Perez et al. 2018).
+        graph_emb = readout
         return graph_emb

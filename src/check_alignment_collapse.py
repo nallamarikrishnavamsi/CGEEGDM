@@ -22,7 +22,7 @@ for spec in args.ckpts:
     name, path = spec.split(':', 1)
     m = PLGraphConditionedClassifier.load_from_checkpoint(path, weights_only=False).eval().to(dev)
     with torch.no_grad():
-        _, zt, zg = m.ema((sig.to(dev), None), ico.to(dev), return_alignment=True, warmup_alpha=1.0)
+        _, zt, zg = m.ema((sig.to(dev), None), ico.to(dev), return_alignment=True)
     def offdiag_cos(z):
         C = z @ z.T
         n = z.size(0)

@@ -106,9 +106,9 @@ class GraphEncoderChannelwise(nn.Module):
                         embedding if None, matching original behavior).
 
         Returns:
-            node_embeddings  : [B, N, hidden_dim] -- L2-normalized per node
+            node_embeddings  : [B, N, hidden_dim] -- raw (no L2)
                                 (dim=-1), for FiLM conditioning.
-            pooled_for_align : [B, hidden_dim] -- L2-normalized, via the
+            pooled_for_align : [B, hidden_dim] -- raw, via the
                                 SAME LearnedReadout mechanism as the
                                 original file, for AlignmentHead ONLY.
                                 Explicitly NOT used for FiLM.
@@ -124,13 +124,14 @@ class GraphEncoderChannelwise(nn.Module):
         else:
             x = self.node_embedding.unsqueeze(0).expand(B, -1, -1)
 
-        for layer in self.layers:
-            x = x + self.dropout(layer(x, adj_norm))   # residual per layer, same as original
+        # Residual GCN (Kipf & Welling 2017, App. B, Eq. 14): H' = sigma(A H W) + H.
+        # Dropout on the layer INPUT of the first and last layer only (App. B).
+        L = len(self.layers)
+        for l, layer in enumerate(self.layers):
+            h = self.dropout(x) if l in (0, L - 1) else x
+            x = x + layer(h, adj_norm)
 
-        # NEW: return per-node embeddings directly, L2-normalized per node
-        # for the same FiLM-input-stability reason the original normalizes
-        # its single pooled readout.
-        node_embeddings = F.normalize(x, dim=-1)  # [B, N, hidden_dim]
+        node_embeddings = x  # [B, N, hidden_dim], passed to FiLM as-is (Perez et al. 2018)
 
         # Separate, explicit pooling -- ONLY for the alignment branch.
         # Uses the same LearnedReadout as the original file, applied here
@@ -138,6 +139,6 @@ class GraphEncoderChannelwise(nn.Module):
         # order: pool first, then normalize).
         pooled, node_weights = self.readout(x)
         self._last_node_weights = node_weights.detach()
-        pooled_for_align = F.normalize(pooled, dim=-1)  # [B, hidden_dim]
+        pooled_for_align = pooled  # [B, hidden_dim]; AlignmentHead normalizes its own projections
 
         return node_embeddings, pooled_for_align

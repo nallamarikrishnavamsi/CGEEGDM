@@ -34,12 +34,3 @@ class AlignmentHead(nn.Module):
 
 def cosine_alignment_loss(z_token, z_graph):
     return (1.0 - (z_token * z_graph).sum(dim=-1)).mean()
-
-
-def contrastive_alignment_loss(z_token, z_graph, temperature=0.1):
-    B = z_token.size(0)
-    logits = z_token @ z_graph.T / temperature
-    labels = torch.arange(B, device=z_token.device)
-    loss_t2g = F.cross_entropy(logits, labels)
-    loss_g2t = F.cross_entropy(logits.T, labels)
-    return (loss_t2g + loss_g2t) / 2

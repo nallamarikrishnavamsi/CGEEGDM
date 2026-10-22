@@ -3,7 +3,7 @@ graph_conditioned_classifier_channelwise.py
 
 Channel-wise variant of model/graph_conditioned_classifier.py (ORIGINAL FILE UNCHANGED).
 
-Wires together GraphEncoderChannelwise + GraphLatentModulationChannelwise so that
+Wires together GraphEncoderChannelwise + GraphFiLMChannelwise so that
 each EEG channel c's latent tokens are conditioned by graph node c's own
 embedding, rather than one global graph embedding conditioning every channel.
 
@@ -17,7 +17,8 @@ import torch
 import torch.nn as nn
 from .graph_encoder_channelwise import GraphEncoderChannelwise
 from .graph_utils import vector_to_adjacency
-from .graph_latent_modulation_channelwise import GraphLatentModulationChannelwise
+from .graph_film import GraphFiLMChannelwise
+from .graph_film_gated import GraphLatentModulationChannelwise
 from .alignment import AlignmentHead
 
 
@@ -36,15 +37,17 @@ class GraphConditionedClassifierChannelwise(nn.Module):
         gcn_layers = 3,
         gcn_dropout = 0.1,
         use_graph  = True,
+        random_tokens = False,
+        film = 'standard',
         augment_icoh = False,
-        icoh_noise_std = 0.05,
         icoh_edge_dropout_p = 0.1,
     ):
         super().__init__()
         self.classifier = classifier
         self.use_graph  = use_graph
+        self.random_tokens = random_tokens   # edge-weights-only ablation
+        self._rand = None
         self.augment_icoh = augment_icoh
-        self.icoh_noise_std = icoh_noise_std
         self.icoh_edge_dropout_p = icoh_edge_dropout_p
         if use_graph:
             assert classifier.extractor.C == num_nodes, (
@@ -59,7 +62,7 @@ class GraphConditionedClassifierChannelwise(nn.Module):
             dropout    = gcn_dropout,
         ) if use_graph else None
 
-        self.graph_modulator = GraphLatentModulationChannelwise(
+        self.graph_modulator = (GraphLatentModulationChannelwise if film == 'gated' else GraphFiLMChannelwise)(
             token_dim = token_dim,
             graph_dim = graph_dim,
         ) if use_graph else None
@@ -70,8 +73,10 @@ class GraphConditionedClassifierChannelwise(nn.Module):
             proj_dim  = 128,
         ) if use_graph else None
 
-    def forward(self, input, icoh_vec, data_is_cached=False, rate=1, return_alignment=False, warmup_alpha=1.0):
-        if not data_is_cached:
+    def forward(self, input, icoh_vec, data_is_cached=False, rate=1, return_alignment=False):
+        if not data_is_cached and self.random_tokens:
+            tokens = self._fixed_random_tokens(input, rate)
+        elif not data_is_cached:
             latent_activity = self.classifier.extractor(input, rate=rate)
             tokens = self.classifier.reducer(latent_activity)
         else:
@@ -86,7 +91,6 @@ class GraphConditionedClassifierChannelwise(nn.Module):
             adj = vector_to_adjacency(
                 icoh_vec,
                 augment=self.augment_icoh and self.training,
-                noise_std=self.icoh_noise_std,
                 edge_dropout_p=self.icoh_edge_dropout_p,
             )  # [B, 20, 20]
 
@@ -104,7 +108,7 @@ class GraphConditionedClassifierChannelwise(nn.Module):
                 f"used throughout this pipeline."
             )
 
-            tokens = self.graph_modulator(tokens, node_embeddings, warmup_alpha=warmup_alpha)
+            tokens = self.graph_modulator(tokens, node_embeddings)
         else:
             pooled_for_align = None
 
@@ -119,6 +123,18 @@ class GraphConditionedClassifierChannelwise(nn.Module):
             return cls, z_token, z_graph
 
         return cls
+
+    def _fixed_random_tokens(self, input, rate):
+        """Edge-weights-only ablation: ONE fixed random token tensor (seeded,
+        identical for every sample, GPU and EMA copy) replaces the backbone
+        tokens, so the only sample-specific input left is the iCOH graph."""
+        sig = input[0] if isinstance(input, (tuple, list)) else input
+        if self._rand is None:
+            with torch.no_grad():
+                shape = self.classifier.reducer(self.classifier.extractor(input, rate=rate)).shape[1:]
+            self._rand = torch.randn(shape, generator=torch.Generator().manual_seed(0))
+        r = self._rand.to(sig.device)
+        return r.unsqueeze(0).expand(sig.size(0), *r.shape)
 
     def get_new_params(self):
         if not self.use_graph:

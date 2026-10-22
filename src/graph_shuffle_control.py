@@ -26,7 +26,7 @@ with torch.no_grad():
                     'shuffled': ico[torch.randperm(ico.size(0), generator=g).to(dev)],
                     'zeroed': torch.zeros_like(ico)}
         for k, v in variants.items():
-            lg, _, _ = m.ema((sig, None), v, return_alignment=True, warmup_alpha=1.0)
+            lg, _, _ = m.ema((sig, None), v, return_alignment=True)
             P[k][0].append(lg.argmax(-1).cpu().numpy()); P[k][1].append(soft.argmax(-1).numpy())
 for k, (pr, la) in P.items():
     pr, la = np.concatenate(pr), np.concatenate(la)

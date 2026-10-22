@@ -59,7 +59,7 @@ with torch.no_grad():
     print("Pooled-for-alignment shape      :", tuple(pooled_for_align.shape),
           "(expect [B, 128], alignment branch only)")
 
-    film_out = model.graph_modulator(tokens, graph_nodes, warmup_alpha=1.0)
+    film_out = model.graph_modulator(tokens, graph_nodes)
     print("GraphCond FiLM input shapes     : tokens", tuple(tokens.shape),
           " graph", tuple(graph_nodes.shape))
     print("GraphCond FiLM output shape     :", tuple(film_out.shape), "(expect same as tokens)")
@@ -78,7 +78,7 @@ with torch.no_grad():
     assert same_count, "channel count mismatch between graph nodes and tokens"
 
     print("\nFull forward with alignment:")
-    cls2, z_token, z_graph = model((signal, None), icoh_vec, return_alignment=True, warmup_alpha=1.0)
+    cls2, z_token, z_graph = model((signal, None), icoh_vec, return_alignment=True)
     print("  cls shape     :", tuple(cls2.shape))
     print("  z_token shape :", tuple(z_token.shape), "(pooled, for alignment loss only)")
     print("  z_graph shape :", tuple(z_graph.shape), "(pooled, for alignment loss only)")

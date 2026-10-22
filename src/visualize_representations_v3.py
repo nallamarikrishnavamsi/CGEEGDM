@@ -74,10 +74,10 @@ def extract_embeddings(ckpt_path, data_root, test_csv, signal_cache, max_samples
                 # (node_embeddings [B,N,H], already L2-normalized;
                 #  pooled_for_align [B,H], alignment branch only -- unused here)
                 node_embeddings, _pooled_for_align = gc_model.graph_encoder(adj, node_features=node_feats)
-                tokens = gc_model.graph_modulator(tokens, node_embeddings, warmup_alpha=1.0)
+                tokens = gc_model.graph_modulator(tokens, node_embeddings)
             else:
                 graph_emb = gc_model.graph_encoder(adj, node_features=node_feats)
-                tokens = gc_model.graph_modulator(tokens, graph_emb, warmup_alpha=1.0)
+                tokens = gc_model.graph_modulator(tokens, graph_emb)
 
         # Pool tokens to a single vector per sample: mean over all dims except batch and H
         B, H = tokens.size(0), tokens.size(-1)
