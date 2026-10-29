@@ -44,6 +44,9 @@ def extract_embeddings(ckpt_path, data_root, test_csv, signal_cache, max_samples
     test_ds = ConnectivityHMSDatasetCached(data_root, test_csv, signal_cache, window_sec=10,
                                             connectivity_measure=connectivity_measure,
                                             pearson_cache_dir=pearson_cache)
+    # Seeded random subset (same samples for every model), not the first rows of the CSV
+    idx = np.sort(np.random.default_rng(0).choice(len(test_ds), size=min(max_samples, len(test_ds)), replace=False))
+    test_ds = torch.utils.data.Subset(test_ds, idx)
     loader = DataLoader(test_ds, batch_size=32, shuffle=False, num_workers=2)
 
     embeddings, labels = [], []
@@ -71,7 +74,7 @@ def extract_embeddings(ckpt_path, data_root, test_csv, signal_cache, max_samples
                 tokens_pre_film.size(0), gc_model.graph_encoder.num_nodes, -1)
             if model_type == 'channelwise':
                 # GraphEncoderChannelwise.forward() returns a tuple:
-                # (node_embeddings [B,N,H], already L2-normalized;
+                # (node_embeddings [B,N,H], raw (no L2);
                 #  pooled_for_align [B,H], alignment branch only -- unused here)
                 node_embeddings, _pooled_for_align = gc_model.graph_encoder(adj, node_features=node_feats)
                 tokens = gc_model.graph_modulator(tokens, node_embeddings)
@@ -79,9 +82,11 @@ def extract_embeddings(ckpt_path, data_root, test_csv, signal_cache, max_samples
                 graph_emb = gc_model.graph_encoder(adj, node_features=node_feats)
                 tokens = gc_model.graph_modulator(tokens, graph_emb)
 
-        # Pool tokens to a single vector per sample: mean over all dims except batch and H
-        B, H = tokens.size(0), tokens.size(-1)
-        pooled = tokens.reshape(B, -1, H).mean(dim=1)  # [B, H]
+        # Penultimate representation: decoder output that feeds the classification head
+        # (the part every model actually trains; pre-decoder tokens are the frozen backbone)
+        rep = gc_model.classifier.decoder(tokens)[gc_model.classifier.use_rep_idx]
+        B = rep.size(0)
+        pooled = rep.reshape(B, -1)
 
         embeddings.append(pooled.cpu().numpy())
         labels.append(soft_label.argmax(dim=-1).cpu().numpy())
